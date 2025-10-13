@@ -14,6 +14,7 @@ import {
 import { ImageResizer } from '@/components/ImageResizer';
 import { Card } from '@/components/ui/card';
 import { AdWrapper } from '@/components/ads/AdWrapper';
+import { AMPAutoAds } from '@/components/ads/AMPAutoAds';
 import Link from 'next/link';
 
 const popularTools = [
@@ -31,6 +32,9 @@ const popularTools = [
 export default function Home() {
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8 md:py-12">
+      {/* AMP Auto Ads */}
+      <AMPAutoAds />
+      
       <AdWrapper type="top" />
       <ImageResizer />
       <section className="mt-16">

@@ -11,6 +11,7 @@ import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import { PageTrackerComponent } from "@/components/PageTracker";
 import { ConsentBanner, ConsentModal } from "@/components/ConsentBanner";
 import { GoogleCMP } from "@/components/GoogleCMP";
+import { AMPAutoAds } from "@/components/ads/AMPAutoAds";
 
 export const metadata: Metadata = {
   title: "ImageResizerNow | Resize, Compress & Convert Images Online FREE",
@@ -94,6 +95,13 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         
+        {/* AMP Auto Ads */}
+        <script 
+          async 
+          custom-element="amp-auto-ads"
+          src="https://cdn.ampproject.org/v0/amp-auto-ads-0.1.js"
+        />
+        
         {/* Google CMP for GDPR Compliance */}
         <script 
           async 
@@ -123,6 +131,9 @@ export default function RootLayout({
         </script>
       </head>
       <body className={cn("font-body antialiased", "min-h-screen bg-background")}>
+        {/* AMP Auto Ads for all pages */}
+        <AMPAutoAds />
+        
         <AuthProvider>
           <AdminAuthProvider>
             <ImageStoreProvider>
