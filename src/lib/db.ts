@@ -2,20 +2,30 @@ import { Pool } from 'pg';
 
 // Parse DATABASE_URL for connection
 const getDbConfig = () => {
+  console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  
   if (process.env.DATABASE_URL) {
-    // Parse the DATABASE_URL
-    const url = new URL(process.env.DATABASE_URL);
-    return {
-      user: url.username,
-      password: url.password,
-      host: url.hostname,
-      port: parseInt(url.port),
-      database: url.pathname.slice(1),
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    };
+    try {
+      // Parse the DATABASE_URL
+      const url = new URL(process.env.DATABASE_URL);
+      console.log('Parsed DATABASE_URL successfully');
+      return {
+        user: url.username,
+        password: url.password,
+        host: url.hostname,
+        port: parseInt(url.port),
+        database: url.pathname.slice(1),
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      };
+    } catch (error) {
+      console.error('Error parsing DATABASE_URL:', error);
+      console.log('Falling back to individual environment variables');
+    }
   }
   
   // Fallback to individual environment variables
+  console.log('Using individual environment variables');
   return {
     user: process.env.DB_USER || 'postgres',
     host: process.env.DB_HOST || 'localhost',
@@ -26,8 +36,17 @@ const getDbConfig = () => {
   };
 };
 
+const dbConfig = getDbConfig();
+console.log('Database config:', {
+  user: dbConfig.user,
+  host: dbConfig.host,
+  port: dbConfig.port,
+  database: dbConfig.database,
+  ssl: dbConfig.ssl
+});
+
 const pool = new Pool({
-  ...getDbConfig(),
+  ...dbConfig,
   // Connection pool settings for better reliability
   max: 10, // Maximum number of clients in the pool
   min: 2,  // Minimum number of clients in the pool
@@ -38,6 +57,15 @@ const pool = new Pool({
   // Additional connection options
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000,
+});
+
+// Add error handling for pool
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+});
+
+pool.on('connect', () => {
+  console.log('Database connected successfully');
 });
 
 export default pool;
