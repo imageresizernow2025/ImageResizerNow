@@ -4,8 +4,8 @@
 export const AD_CONFIG = {
   // Google AdSense Configuration
   googleAdSense: {
-    clientId: process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID || 'ca-pub-xxxxxxxxxx',
-    enabled: process.env.NEXT_PUBLIC_ADS_ENABLED === 'true' || false,
+    clientId: process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID || 'ca-pub-1125405879614984',
+    enabled: process.env.NEXT_PUBLIC_ADS_ENABLED === 'true' || true,
     testMode: process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_AD_TEST_MODE === 'true',
   },
   
