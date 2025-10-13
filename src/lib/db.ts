@@ -125,6 +125,26 @@ export async function initializeDatabase() {
       )
     `);
 
+        // Create teams table first (needed for stored_images)
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS teams (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            slug VARCHAR(255) UNIQUE NOT NULL,
+            description TEXT,
+            owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            plan VARCHAR(50) DEFAULT 'BUSINESS',
+            storage_quota_mb INTEGER DEFAULT 10000,
+            storage_used_mb INTEGER DEFAULT 0,
+            monthly_usage_limit INTEGER DEFAULT 10000,
+            monthly_usage_count INTEGER DEFAULT 0,
+            last_usage_reset_date DATE DEFAULT CURRENT_DATE,
+            settings JSONB DEFAULT '{}',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+
         // Create stored_images table for cloud storage
         await client.query(`
           CREATE TABLE IF NOT EXISTS stored_images (
@@ -163,6 +183,69 @@ export async function initializeDatabase() {
         current_period_end TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create team_members table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS team_members (
+        id SERIAL PRIMARY KEY,
+        team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(50) DEFAULT 'member',
+        permissions JSONB DEFAULT '{}',
+        invited_by INTEGER REFERENCES users(id),
+        invited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        joined_at TIMESTAMP,
+        status VARCHAR(50) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(team_id, user_id)
+      )
+    `);
+
+    // Create team_invitations table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS team_invitations (
+        id SERIAL PRIMARY KEY,
+        team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
+        email VARCHAR(255) NOT NULL,
+        role VARCHAR(50) DEFAULT 'member',
+        token VARCHAR(255) UNIQUE NOT NULL,
+        invited_by INTEGER REFERENCES users(id),
+        expires_at TIMESTAMP NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(team_id, email)
+      )
+    `);
+
+    // Create team_activity_logs table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS team_activity_logs (
+        id SERIAL PRIMARY KEY,
+        team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        action VARCHAR(100) NOT NULL,
+        description TEXT,
+        metadata JSONB DEFAULT '{}',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create page_usage table for analytics
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS page_usage (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        page_path VARCHAR(500) NOT NULL,
+        page_title VARCHAR(500),
+        session_id VARCHAR(255),
+        ip_address INET,
+        user_agent TEXT,
+        referrer VARCHAR(500),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
