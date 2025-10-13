@@ -1,1 +1,2 @@
 google.com, pub-1125405879614984, DIRECT, f08c47fec0942fa0
+# Updated for Google AdSense verification
