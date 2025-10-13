@@ -1,11 +1,33 @@
 import { Pool } from 'pg';
 
+// Parse DATABASE_URL for connection
+const getDbConfig = () => {
+  if (process.env.DATABASE_URL) {
+    // Parse the DATABASE_URL
+    const url = new URL(process.env.DATABASE_URL);
+    return {
+      user: url.username,
+      password: url.password,
+      host: url.hostname,
+      port: parseInt(url.port),
+      database: url.pathname.slice(1),
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    };
+  }
+  
+  // Fallback to individual environment variables
+  return {
+    user: process.env.DB_USER || 'postgres',
+    host: process.env.DB_HOST || 'localhost',
+    database: process.env.DB_NAME || 'imageresizernow_db',
+    password: process.env.DB_PASSWORD || 'DAUDselemani01#',
+    port: parseInt(process.env.DB_PORT || '5432'),
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  };
+};
+
 const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'imageresizernow_db',
-  password: process.env.DB_PASSWORD || 'DAUDselemani01#',
-  port: parseInt(process.env.DB_PORT || '5432'),
+  ...getDbConfig(),
   // Connection pool settings for better reliability
   max: 10, // Maximum number of clients in the pool
   min: 2,  // Minimum number of clients in the pool
@@ -13,8 +35,6 @@ const pool = new Pool({
   connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
   acquireTimeoutMillis: 10000, // Return an error after 10 seconds if a connection could not be acquired
   maxUses: 7500, // Close (and replace) a connection after it has been used 7500 times
-  // SSL configuration for production
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   // Additional connection options
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000,
