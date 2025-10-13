@@ -71,7 +71,7 @@
     "lucide-react": "^0.475.0",
     "multer": "^2.0.2",
     "multer-s3": "^3.0.1",
-    "next": "15.3.3",
+    "next": "^15.5.5",
     "next-auth": "^4.24.11",
     "patch-package": "^8.0.0",
     "pg": "^8.16.3",
@@ -87,7 +87,6 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
-    "@types/jszip": "^3.4.1",
     "@types/multer": "^2.0.0",
     "@types/node": "^20",
     "@types/react": "^18",

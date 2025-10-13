@@ -9,7 +9,6 @@ import { ImageStoreProvider } from "@/store/image-store";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import { PageTrackerComponent } from "@/components/PageTracker";
-import { ConsentBanner, ConsentModal } from "@/components/ConsentBanner";
 import { GoogleCMP } from "@/components/GoogleCMP";
 import { AMPAutoAds } from "@/components/ads/AMPAutoAds";
 
@@ -107,28 +106,32 @@ export default function RootLayout({
           async 
           src="https://fundingchoicesmessages.google.com/i/pub-1125405879614984?ers=1"
         />
-        <script>
-          (function() {
-            function signalGooglefcPresent() {
-              if (!window.frames['googlefcPresent']) {
-                if (document.body) {
-                  const iframe = document.createElement('iframe');
-                  iframe.style.width = '0';
-                  iframe.style.height = '0';
-                  iframe.style.border = 'none';
-                  iframe.style.zIndex = '-1000';
-                  iframe.style.left = '-1000px';
-                  iframe.style.top = '-1000px';
-                  iframe.name = 'googlefcPresent';
-                  document.body.appendChild(iframe);
-                } else {
-                  setTimeout(signalGooglefcPresent, 0);
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                function signalGooglefcPresent() {
+                  if (!window.frames['googlefcPresent']) {
+                    if (document.body) {
+                      const iframe = document.createElement('iframe');
+                      iframe.style.width = '0';
+                      iframe.style.height = '0';
+                      iframe.style.border = 'none';
+                      iframe.style.zIndex = '-1000';
+                      iframe.style.left = '-1000px';
+                      iframe.style.top = '-1000px';
+                      iframe.name = 'googlefcPresent';
+                      document.body.appendChild(iframe);
+                    } else {
+                      setTimeout(signalGooglefcPresent, 0);
+                    }
+                  }
                 }
-              }
-            }
-            signalGooglefcPresent();
-          })();
-        </script>
+                signalGooglefcPresent();
+              })();
+            `,
+          }}
+        />
       </head>
       <body className={cn("font-body antialiased", "min-h-screen bg-background")}>
         {/* AMP Auto Ads for all pages */}
@@ -145,12 +148,6 @@ export default function RootLayout({
               </div>
               <Toaster />
               <GoogleCMP />
-              <ConsentBanner 
-                onAccept={() => console.log('Consent accepted')}
-                onReject={() => console.log('Consent rejected')}
-                onManage={() => console.log('Manage consent')}
-                onClose={() => console.log('Banner closed')}
-              />
             </ImageStoreProvider>
           </AdminAuthProvider>
         </AuthProvider>
