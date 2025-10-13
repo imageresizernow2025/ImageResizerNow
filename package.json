@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit",
     "typecheck:watch": "tsc --noEmit --watch",
     "init-db": "tsx scripts/init-db.ts",
+    "init-prod-db": "tsx scripts/init-production-db.ts",
     "perf:test": "tsx scripts/performance-test.ts",
     "perf:monitor": "tsx scripts/performance-monitor.ts",
     "setup:secure": "tsx scripts/setup-secure-env.ts",
