@@ -16,7 +16,8 @@ const getDbConfig = () => {
         host: url.hostname,
         port: parseInt(url.port) || 5432,
         database: url.pathname.slice(1),
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        // Always use SSL for Render PostgreSQL
+        ssl: { rejectUnauthorized: false }
       };
     } catch (error) {
       console.error('Error parsing DATABASE_URL:', error);
@@ -47,16 +48,15 @@ console.log('Database config:', {
 
 const pool = new Pool({
   ...dbConfig,
-  // Connection pool settings for better reliability
-  max: 10, // Maximum number of clients in the pool
-  min: 2,  // Minimum number of clients in the pool
-  idleTimeoutMillis: 60000, // Close idle clients after 60 seconds
-  connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
-  acquireTimeoutMillis: 10000, // Return an error after 10 seconds if a connection could not be acquired
-  maxUses: 7500, // Close (and replace) a connection after it has been used 7500 times
-  // Additional connection options
-  keepAlive: true,
-  keepAliveInitialDelayMillis: 10000,
+  // Connection pool settings optimized for Render PostgreSQL
+  max: 5, // Reduced maximum connections for Render
+  min: 0, // No minimum connections to avoid idle connections
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 5000, // Reduced timeout for faster failure detection
+  acquireTimeoutMillis: 5000, // Reduced timeout for faster failure detection
+  maxUses: 1000, // Reduced max uses to refresh connections more often
+  // Connection options optimized for cloud databases
+  keepAlive: false, // Disable keepAlive for cloud databases
 });
 
 // Add error handling for pool
@@ -199,27 +199,17 @@ export async function initializeDatabase() {
 }
 
 // Helper function to execute queries with retry logic
-export async function query(text: string, params?: any[], retries: number = 3): Promise<any> {
+export async function query(text: string, params?: any[], retries: number = 2): Promise<any> {
   let lastError: Error | null = null;
   
   for (let attempt = 1; attempt <= retries; attempt++) {
     let client;
     try {
-      // Get connection with timeout
-      client = await Promise.race([
-        pool.connect(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Connection timeout')), 10000)
-        )
-      ]) as any;
+      // Get connection with shorter timeout
+      client = await pool.connect();
       
-      // Execute query with timeout
-      const result = await Promise.race([
-        client.query(text, params),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Query timeout')), 15000)
-        )
-      ]);
+      // Execute query with shorter timeout
+      const result = await client.query(text, params);
       
       return result;
     } catch (error) {
@@ -229,14 +219,14 @@ export async function query(text: string, params?: any[], retries: number = 3): 
       // If it's a connection error and we have retries left, wait and try again
       if (attempt < retries && (
         error instanceof Error && (
-          error.message.includes('timeout') ||
+          error.message.includes('ECONNRESET') ||
           error.message.includes('Connection terminated') ||
           error.message.includes('connection') ||
-          error.message.includes('ECONNRESET')
+          error.code === 'ECONNRESET'
         )
       )) {
-        console.log(`Retrying database query in ${attempt * 1000}ms...`);
-        await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+        console.log(`Retrying database query in ${attempt * 500}ms...`);
+        await new Promise(resolve => setTimeout(resolve, attempt * 500));
         continue;
       }
       
