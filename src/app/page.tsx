@@ -31,12 +31,14 @@ const popularTools = [
 
 export default function Home() {
   return (
-    <div className="container mx-auto max-w-7xl px-4 py-8 md:py-12">
+    <div className="container mx-auto max-w-7xl px-4 py-4 md:py-6">
       {/* AMP Auto Ads */}
       <AMPAutoAds />
       
       <AdWrapper type="top" />
-      <ImageResizer />
+      <div className="mt-4">
+        <ImageResizer />
+      </div>
       <section className="mt-16">
         <h2 className="mb-8 text-center text-3xl font-bold tracking-tight">
           Popular Tools

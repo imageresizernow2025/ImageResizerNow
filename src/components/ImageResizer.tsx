@@ -771,7 +771,7 @@ export function ImageResizer() {
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-6">
         <div className="lg:col-span-3">
           <Card
             className={`relative border-2 border-dashed transition-colors ${
