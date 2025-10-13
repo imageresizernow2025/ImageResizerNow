@@ -14,7 +14,7 @@ const getDbConfig = () => {
         user: url.username,
         password: url.password,
         host: url.hostname,
-        port: parseInt(url.port),
+        port: parseInt(url.port) || 5432,
         database: url.pathname.slice(1),
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
       };
