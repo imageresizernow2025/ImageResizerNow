@@ -5,6 +5,9 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
     
+    // Debug: Log the received data
+    console.log('Track page received data:', data);
+    
     const {
       user_id,
       guest_id,
@@ -15,6 +18,27 @@ export async function POST(request: NextRequest) {
       user_agent,
       timestamp
     } = data;
+    
+    // Debug: Log the extracted values
+    console.log('Extracted values:', {
+      user_id,
+      guest_id,
+      page_path,
+      page_title,
+      session_id,
+      referrer,
+      user_agent,
+      timestamp
+    });
+
+    // Validate required fields
+    if (!page_path) {
+      console.error('Missing required field: page_path');
+      return NextResponse.json(
+        { error: 'Missing required field: page_path' },
+        { status: 400 }
+      );
+    }
 
     // Insert page usage data (user_id can be null for guests)
     await query(`
