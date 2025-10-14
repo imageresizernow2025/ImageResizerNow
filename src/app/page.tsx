@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ImageResizer } from '@/components/ImageResizer';
 import { Card } from '@/components/ui/card';
+import { HydrationSafe } from '@/components/HydrationSafe';
 // import { AdWrapper } from '@/components/ads/AdWrapper'; // Disabled
 // import { AMPAutoAds } from '@/components/ads/AMPAutoAds'; // Disabled
 import Link from 'next/link';
@@ -45,12 +46,14 @@ export default function Home() {
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           {popularTools.slice(0, 5).map((tool) => (
-            <Link key={tool.name} href={tool.href}>
-              <Card className="flex h-24 flex-col items-center justify-center gap-2 p-4 text-center transition-colors hover:bg-accent hover:text-accent-foreground">
-                {tool.icon}
-                <span className="font-semibold">{tool.name}</span>
-              </Card>
-            </Link>
+            <HydrationSafe key={tool.name}>
+              <Link href={tool.href}>
+                <Card className="flex h-24 flex-col items-center justify-center gap-2 p-4 text-center transition-colors hover:bg-accent hover:text-accent-foreground">
+                  {tool.icon}
+                  <span className="font-semibold">{tool.name}</span>
+                </Card>
+              </Link>
+            </HydrationSafe>
           ))}
         </div>
         
@@ -59,12 +62,14 @@ export default function Home() {
         
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
           {popularTools.slice(5).map((tool) => (
-            <Link key={tool.name} href={tool.href}>
-              <Card className="flex h-24 flex-col items-center justify-center gap-2 p-4 text-center transition-colors hover:bg-accent hover:text-accent-foreground">
-                {tool.icon}
-                <span className="font-semibold">{tool.name}</span>
-              </Card>
-            </Link>
+            <HydrationSafe key={tool.name}>
+              <Link href={tool.href}>
+                <Card className="flex h-24 flex-col items-center justify-center gap-2 p-4 text-center transition-colors hover:bg-accent hover:text-accent-foreground">
+                  {tool.icon}
+                  <span className="font-semibold">{tool.name}</span>
+                </Card>
+              </Link>
+            </HydrationSafe>
           ))}
         </div>
         

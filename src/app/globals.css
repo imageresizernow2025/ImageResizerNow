@@ -81,4 +81,16 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;  /* Safari and Chrome */
   }
+  
+  /* Prevent Dark Reader from causing hydration mismatches */
+  .dark-reader-safe {
+    /* Force specific styles that Dark Reader won't override */
+    stroke: currentColor !important;
+    fill: currentColor !important;
+  }
+  
+  /* Suppress hydration warnings for elements commonly affected by browser extensions */
+  [data-suppress-hydration-warning] {
+    /* This class can be added to elements that are commonly affected by browser extensions */
+  }
 }

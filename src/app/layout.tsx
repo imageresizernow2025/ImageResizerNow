@@ -13,6 +13,7 @@ import { GoogleCMP } from "@/components/GoogleCMP";
 // import { AMPAutoAds } from "@/components/ads/AMPAutoAds"; // Disabled
 import { initializeModernEventHandling } from "@/lib/event-utils";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { initializeAllHydrationFixes } from "@/lib/hydration-fix";
 
 export const metadata: Metadata = {
   title: "ImageResizerNow | Resize, Compress & Convert Images Online FREE",
@@ -172,7 +173,7 @@ export default function RootLayout({
         />
       </head>
       <body className={cn("font-body antialiased", "min-h-screen bg-background")}>
-        {/* Initialize modern event handling */}
+        {/* Initialize modern event handling and hydration fixes */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -189,6 +190,62 @@ export default function RootLayout({
                   // Only prevent navigation if there are unsaved changes
                   // This is more user-friendly than always preventing navigation
                 });
+                
+                // Initialize hydration fixes to prevent mismatches from browser extensions
+                if (typeof window !== 'undefined') {
+                  // Clean up Dark Reader attributes that cause hydration mismatches
+                  function cleanupDarkReaderAttributes() {
+                    const elements = document.querySelectorAll('[data-darkreader-inline-stroke]');
+                    elements.forEach(element => {
+                      // Remove all Dark Reader attributes
+                      Array.from(element.attributes).forEach(attr => {
+                        if (attr.name.startsWith('data-darkreader-')) {
+                          element.removeAttribute(attr.name);
+                        }
+                      });
+                      
+                      // Clean up Dark Reader inline styles
+                      if (element instanceof HTMLElement && element.style) {
+                        const cleanStyle = element.style.cssText
+                          .split(';')
+                          .filter(rule => !rule.includes('--darkreader-inline'))
+                          .join(';');
+                        element.style.cssText = cleanStyle;
+                      }
+                    });
+                  }
+                  
+                  // Clean up immediately and on DOM changes
+                  cleanupDarkReaderAttributes();
+                  
+                  // Set up a mutation observer to clean up new Dark Reader attributes
+                  const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                      if (mutation.type === 'attributes') {
+                        const target = mutation.target;
+                        const attributeName = mutation.attributeName;
+                        
+                        if (attributeName?.startsWith('data-darkreader-')) {
+                          target.removeAttribute(attributeName);
+                        }
+                        
+                        if (attributeName === 'style' && target instanceof HTMLElement) {
+                          const cleanStyle = target.style.cssText
+                            .split(';')
+                            .filter(rule => !rule.includes('--darkreader-inline'))
+                            .join(';');
+                          target.style.cssText = cleanStyle;
+                        }
+                      }
+                    });
+                  });
+                  
+                  observer.observe(document.body, {
+                    attributes: true,
+                    subtree: true,
+                    attributeFilter: ['data-darkreader-inline-stroke', 'style']
+                  });
+                }
               })();
             `,
           }}
