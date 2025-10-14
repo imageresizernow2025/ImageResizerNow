@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { debugAuthState, clearAllAuthData } from '@/lib/auth-debug';
 
 export interface User {
   id: number;
@@ -32,19 +33,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = async () => {
     try {
+      // Debug authentication state before making request
+      debugAuthState();
+      
       const response = await fetch('/api/auth/me', {
         credentials: 'include',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
       });
+      
+      console.log('Auth refresh response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
+        console.log('User authenticated successfully:', data.user.email);
       } else if (response.status === 401) {
-        // Only logout if it's an authentication error (401), not server errors
-        console.log('User not authenticated, logging out');
+        // Clear user state on authentication error
+        console.log('User not authenticated (401), clearing user state');
         setUser(null);
+        // Clear all authentication data
+        clearAllAuthData();
+      } else if (response.status === 503) {
+        // Database temporarily unavailable - keep current state but log warning
+        console.warn('Database temporarily unavailable, keeping current session');
       } else {
-        // For other errors (500, 503, etc.), keep the current user state
+        // For other errors (500, etc.), keep the current user state
         console.warn('Failed to refresh user data, but keeping current session:', response.status);
       }
     } catch (error) {
@@ -69,11 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         setUser(data.user);
+        console.log('Login successful for user:', data.user.email);
         return { success: true };
       } else {
-        return { success: false, error: data.error };
+        console.error('Login failed:', data.error);
+        return { success: false, error: data.error || 'Login failed' };
       }
     } catch (error) {
+      console.error('Login network error:', error);
       return { success: false, error: 'Network error' };
     }
   };
@@ -108,15 +127,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         credentials: 'include',
       });
+      console.log('Logout successful');
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      // Always clear user state and cookies
       setUser(null);
+      // Clear authentication cookies
+      document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=' + window.location.hostname + ';';
     }
   };
 
   useEffect(() => {
-    refreshUser().finally(() => setIsLoading(false));
+    const initializeAuth = async () => {
+      try {
+        await refreshUser();
+      } catch (error) {
+        console.error('Initial auth check failed:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   return (
