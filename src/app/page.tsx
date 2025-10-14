@@ -70,7 +70,7 @@ export default function Home() {
         
         {/* Ad after last tool - DISABLED */}
         {/* <div className="mt-8">
-          {/* <AdWrapper type="between-tools" /> */}
+          <AdWrapper type="between-tools" />
         </div> */}
       </section>
       {/* <AdWrapper type="bottom" /> */}
