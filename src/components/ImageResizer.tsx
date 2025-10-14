@@ -1626,7 +1626,10 @@ export function ImageResizer() {
                 )}>
                   <span className="text-muted-foreground">Resized Size:</span>  
                   <span className="font-medium">
-                    {previewImage.resizedSize ? formatBytes(previewImage.resizedSize) : 'N/A'}                                                                  
+                    {showComparison && comparisonImage && comparisonImage.resizedSize ? 
+                      formatBytes(comparisonImage.resizedSize) : 
+                      previewImage.resizedSize ? formatBytes(previewImage.resizedSize) : 'N/A'
+                    }                                                                  
                   </span>
                 </div>
                 <div className={cn(
@@ -1648,15 +1651,27 @@ export function ImageResizer() {
                   <span className="text-muted-foreground">Size Reduction:</span>
                   <span className={cn(
                     "font-medium",
-                    previewImage.resizedSize && previewImage.originalSize && 
-                    ((previewImage.originalSize - previewImage.resizedSize) / previewImage.originalSize) > 0 
-                      ? 'text-green-500' 
-                      : 'text-red-500'
+                    (() => {
+                      if (showComparison && comparisonImage && comparisonImage.resizedSize && previewImage.originalSize) {
+                        const reduction = (previewImage.originalSize - comparisonImage.resizedSize) / previewImage.originalSize;
+                        return reduction > 0 ? 'text-green-500' : 'text-red-500';
+                      } else if (previewImage.resizedSize && previewImage.originalSize) {
+                        const reduction = (previewImage.originalSize - previewImage.resizedSize) / previewImage.originalSize;
+                        return reduction > 0 ? 'text-green-500' : 'text-red-500';
+                      }
+                      return 'text-gray-500';
+                    })()
                   )}>
-                    {previewImage.resizedSize && previewImage.originalSize ? 
-                      `${Math.round(Math.abs((previewImage.originalSize - previewImage.resizedSize) / previewImage.originalSize) * 100)}%` 
-                      : 'N/A'
-                    }
+                    {(() => {
+                      if (showComparison && comparisonImage && comparisonImage.resizedSize && previewImage.originalSize) {
+                        const reduction = Math.abs((previewImage.originalSize - comparisonImage.resizedSize) / previewImage.originalSize) * 100;
+                        return `${Math.round(reduction)}%`;
+                      } else if (previewImage.resizedSize && previewImage.originalSize) {
+                        const reduction = Math.abs((previewImage.originalSize - previewImage.resizedSize) / previewImage.originalSize) * 100;
+                        return `${Math.round(reduction)}%`;
+                      }
+                      return 'N/A';
+                    })()}
                   </span>
                 </div>
               </div>
