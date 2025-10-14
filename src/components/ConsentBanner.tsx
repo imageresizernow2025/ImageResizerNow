@@ -119,7 +119,7 @@ export function ConsentModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
                 These cookies are necessary for the website to function and cannot be switched off.
               </p>
               <div className="flex items-center gap-2">
-                <input type="checkbox" checked disabled className="rounded" />
+                <input type="checkbox" id="always-active" name="always-active" checked disabled className="rounded" />
                 <span className="text-sm">Always Active</span>
               </div>
             </div>
@@ -130,7 +130,7 @@ export function ConsentModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
                 These cookies help us understand how visitors interact with our website.
               </p>
               <div className="flex items-center gap-2">
-                <input type="checkbox" defaultChecked className="rounded" />
+                <input type="checkbox" id="google-analytics" name="google-analytics" defaultChecked className="rounded" />
                 <span className="text-sm">Google Analytics</span>
               </div>
             </div>
@@ -141,7 +141,7 @@ export function ConsentModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
                 These cookies are used to make advertising messages more relevant to you.
               </p>
               <div className="flex items-center gap-2">
-                <input type="checkbox" defaultChecked className="rounded" />
+                <input type="checkbox" id="google-adsense" name="google-adsense" defaultChecked className="rounded" />
                 <span className="text-sm">Google AdSense</span>
               </div>
             </div>

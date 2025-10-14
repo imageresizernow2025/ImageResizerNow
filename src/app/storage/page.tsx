@@ -348,6 +348,8 @@ export default function StoragePage() {
                     </div>
                     <input
                       type="checkbox"
+                      id={`select-image-${image.id}`}
+                      name={`select-image-${image.id}`}
                       className="absolute top-2 left-2"
                       checked={selectedImages.includes(image.id)}
                       onChange={(e) => {
