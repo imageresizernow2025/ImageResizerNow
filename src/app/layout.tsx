@@ -109,7 +109,6 @@ export default function RootLayout({
         <script 
           async 
           src="https://fundingchoicesmessages.google.com/i/pub-1125405879614984?ers=1"
-          onError={(e) => console.warn('Google CMP script failed to load:', e)}
         />
         <script
           dangerouslySetInnerHTML={{
