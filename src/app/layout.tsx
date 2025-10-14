@@ -198,33 +198,7 @@ export default function RootLayout({
                   try {
                     // Add global CSS compatibility styles
                     const style = document.createElement('style');
-                    style.textContent = `
-                      /* Global CSS compatibility fixes */
-                      html {
-                        -webkit-text-size-adjust: 100%;
-                        text-size-adjust: 100%;
-                      }
-                      
-                      /* Fix for Next.js dialog backdrop */
-                      [data-nextjs-dialog-backdrop] {
-                        -webkit-backdrop-filter: blur(10px);
-                        backdrop-filter: blur(10px);
-                      }
-                      
-                      /* Fix for Next.js container errors */
-                      [data-nextjs-container-errors-pseudo-html-collapse='true'] .nextjs__container_errors__component-stack code {
-                        -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0) 0%, black 10%);
-                        mask-image: linear-gradient(to bottom, rgba(0,0,0,0) 0%, black 10%);
-                      }
-                      
-                      /* Fix for dev tools indicator */
-                      .dev-tools-indicator-item {
-                        -webkit-user-select: none;
-                        -moz-user-select: none;
-                        -ms-user-select: none;
-                        user-select: none;
-                      }
-                    `;
+                    style.textContent = 'html{-webkit-text-size-adjust:100%;text-size-adjust:100%}[data-nextjs-dialog-backdrop]{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}[data-nextjs-container-errors-pseudo-html-collapse="true"] .nextjs__container_errors__component-stack code{-webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,0) 0%,black 10%);mask-image:linear-gradient(to bottom,rgba(0,0,0,0) 0%,black 10%)}.dev-tools-indicator-item{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}';
                     document.head.appendChild(style);
                   } catch (error) {
                     console.log('CSS compatibility initialization skipped:', error);
