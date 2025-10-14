@@ -211,6 +211,8 @@ function UsersPageContent() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
+                  id="user-search"
+                  name="user-search"
                   placeholder="Search by name or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -221,6 +223,8 @@ function UsersPageContent() {
             
             <div className="flex gap-2">
               <select
+                id="status-filter"
+                name="status-filter"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value as any)}
                 className="px-3 py-2 border border-input bg-background rounded-md text-sm"
@@ -232,6 +236,8 @@ function UsersPageContent() {
               </select>
               
               <select
+                id="sort-order"
+                name="sort-order"
                 value={`${sortBy}-${sortOrder}`}
                 onChange={(e) => {
                   const [field, order] = e.target.value.split('-');
