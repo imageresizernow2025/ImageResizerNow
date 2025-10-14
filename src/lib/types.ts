@@ -11,6 +11,8 @@ export interface ResizedImage {
     error?: string;
     width?: number;
     height?: number;
+    originalWidth?: number;
+    originalHeight?: number;
 }
 
 export interface ResizingOptions {

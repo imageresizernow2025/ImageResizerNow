@@ -411,6 +411,8 @@ export function ImageResizer() {
               resizedSize: blob.size,
               width: targetWidth,
               height: targetHeight,
+              originalWidth: img.width,
+              originalHeight: img.height,
             });
           },
           options.format,
@@ -788,9 +790,31 @@ export function ImageResizer() {
     setShowPreviewDialog(true);
   };
 
-  const handleCompareImages = (image1: ResizedImage, image2: ResizedImage) => {
-    setPreviewImage(image1);
-    setComparisonImage(image2);
+  const handleCompareImages = (image: ResizedImage) => {
+    // Create original image data for comparison
+    const originalImage: ResizedImage = {
+      ...image,
+      previewUrl: image.previewUrl, // Original preview URL
+      width: image.originalWidth, // Original dimensions
+      height: image.originalHeight,
+      originalSize: image.originalSize,
+      resizedSize: undefined, // No resized size for original
+      resizedUrl: undefined
+    };
+
+    // Create resized image data for comparison
+    const resizedImage: ResizedImage = {
+      ...image,
+      previewUrl: image.resizedUrl || image.previewUrl, // Use resized URL if available
+      width: image.width, // Resized dimensions
+      height: image.height,
+      originalSize: image.originalSize, // Keep original size for comparison
+      resizedSize: image.resizedSize, // Resized size
+      resizedUrl: image.resizedUrl
+    };
+
+    setPreviewImage(originalImage);
+    setComparisonImage(resizedImage);
     setShowComparison(true);
     setShowPreviewDialog(true);
   };
@@ -1428,7 +1452,7 @@ export function ImageResizer() {
                                 size="sm"
                                 variant="outline"
                                 className="w-full"
-                                onClick={() => handleCompareImages(image, image)}
+                                onClick={() => handleCompareImages(image)}
                               >
                                 <Eye className="mr-2 h-4 w-4" />
                                 Compare
@@ -1611,7 +1635,10 @@ export function ImageResizer() {
                 )}>
                   <span className="text-muted-foreground">Dimensions:</span>
                   <span className="font-medium">
-                    {previewImage.width} x {previewImage.height}
+                    {showComparison && comparisonImage ? 
+                      `${previewImage.width} x ${previewImage.height} → ${comparisonImage.width} x ${comparisonImage.height}` :
+                      `${previewImage.width} x ${previewImage.height}`
+                    }
                   </span>
                 </div>
                 <div className={cn(
