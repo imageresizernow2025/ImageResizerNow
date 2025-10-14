@@ -73,7 +73,6 @@ export default function Home() {
           <AdWrapper type="between-tools" />
         </div> */}
       </section>
-      {/* <AdWrapper type="bottom" /> */}
     </div>
   );
 }
