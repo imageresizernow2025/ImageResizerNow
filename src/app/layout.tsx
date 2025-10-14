@@ -191,59 +191,50 @@ export default function RootLayout({
                   // This is more user-friendly than always preventing navigation
                 });
                 
-                // Initialize hydration fixes to prevent mismatches from browser extensions
+                // Initialize lightweight hydration fixes to prevent mismatches from browser extensions
                 if (typeof window !== 'undefined') {
-                  // Clean up Dark Reader attributes that cause hydration mismatches
+                  // Lightweight cleanup function
                   function cleanupDarkReaderAttributes() {
-                    const elements = document.querySelectorAll('[data-darkreader-inline-stroke]');
-                    elements.forEach(element => {
-                      // Remove all Dark Reader attributes
-                      Array.from(element.attributes).forEach(attr => {
-                        if (attr.name.startsWith('data-darkreader-')) {
-                          element.removeAttribute(attr.name);
-                        }
-                      });
-                      
-                      // Clean up Dark Reader inline styles
-                      if (element instanceof HTMLElement && element.style) {
-                        const cleanStyle = element.style.cssText
-                          .split(';')
-                          .filter(rule => !rule.includes('--darkreader-inline'))
-                          .join(';');
-                        element.style.cssText = cleanStyle;
-                      }
-                    });
-                  }
-                  
-                  // Clean up immediately and on DOM changes
-                  cleanupDarkReaderAttributes();
-                  
-                  // Set up a mutation observer to clean up new Dark Reader attributes
-                  const observer = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                      if (mutation.type === 'attributes') {
-                        const target = mutation.target;
-                        const attributeName = mutation.attributeName;
+                    // Only clean up if Dark Reader is detected
+                    const darkReaderElements = document.querySelectorAll('[data-darkreader-inline-stroke]');
+                    if (darkReaderElements.length > 0) {
+                      darkReaderElements.forEach(element => {
+                        // Remove only the problematic attributes
+                        element.removeAttribute('data-darkreader-inline-stroke');
                         
-                        if (attributeName?.startsWith('data-darkreader-')) {
-                          target.removeAttribute(attributeName);
-                        }
-                        
-                        if (attributeName === 'style' && target instanceof HTMLElement) {
-                          const cleanStyle = target.style.cssText
+                        // Clean up Dark Reader inline styles efficiently
+                        if (element instanceof HTMLElement && element.style.cssText.includes('--darkreader-inline')) {
+                          element.style.cssText = element.style.cssText
                             .split(';')
                             .filter(rule => !rule.includes('--darkreader-inline'))
                             .join(';');
-                          target.style.cssText = cleanStyle;
                         }
-                      }
-                    });
+                      });
+                    }
+                  }
+                  
+                  // Clean up once after a short delay to allow extensions to load
+                  setTimeout(cleanupDarkReaderAttributes, 100);
+                  
+                  // Set up a lightweight mutation observer
+                  let observerTimeout;
+                  const observer = new MutationObserver((mutations) => {
+                    // Debounce the cleanup to avoid performance issues
+                    clearTimeout(observerTimeout);
+                    observerTimeout = setTimeout(() => {
+                      mutations.forEach((mutation) => {
+                        if (mutation.type === 'attributes' && mutation.attributeName?.startsWith('data-darkreader-')) {
+                          mutation.target.removeAttribute(mutation.attributeName);
+                        }
+                      });
+                    }, 50);
                   });
                   
+                  // Start observing with minimal configuration
                   observer.observe(document.body, {
                     attributes: true,
                     subtree: true,
-                    attributeFilter: ['data-darkreader-inline-stroke', 'style']
+                    attributeFilter: ['data-darkreader-inline-stroke']
                   });
                 }
               })();
