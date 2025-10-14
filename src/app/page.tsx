@@ -13,8 +13,8 @@ import {
 } from 'lucide-react';
 import { ImageResizer } from '@/components/ImageResizer';
 import { Card } from '@/components/ui/card';
-import { AdWrapper } from '@/components/ads/AdWrapper';
-import { AMPAutoAds } from '@/components/ads/AMPAutoAds';
+// import { AdWrapper } from '@/components/ads/AdWrapper'; // Disabled
+// import { AMPAutoAds } from '@/components/ads/AMPAutoAds'; // Disabled
 import Link from 'next/link';
 
 const popularTools = [
@@ -32,10 +32,10 @@ const popularTools = [
 export default function Home() {
   return (
     <div className="container mx-auto max-w-7xl px-4 py-4 md:py-6">
-      {/* AMP Auto Ads */}
-      <AMPAutoAds />
+      {/* AMP Auto Ads - DISABLED */}
+      {/* <AMPAutoAds /> */}
       
-      <AdWrapper type="top" />
+      {/* <AdWrapper type="top" /> */}
       <div className="mt-4">
         <ImageResizer />
       </div>
@@ -54,8 +54,8 @@ export default function Home() {
           ))}
         </div>
         
-        {/* Ad between tool rows */}
-        <AdWrapper type="between-tools" />
+        {/* Ad between tool rows - DISABLED */}
+        {/* <AdWrapper type="between-tools" /> */}
         
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
           {popularTools.slice(5).map((tool) => (
@@ -68,12 +68,12 @@ export default function Home() {
           ))}
         </div>
         
-        {/* Ad after last tool */}
-        <div className="mt-8">
-          <AdWrapper type="between-tools" />
-        </div>
+        {/* Ad after last tool - DISABLED */}
+        {/* <div className="mt-8">
+          {/* <AdWrapper type="between-tools" /> */}
+        </div> */}
       </section>
-      <AdWrapper type="bottom" />
+      {/* <AdWrapper type="bottom" /> */}
     </div>
   );
 }

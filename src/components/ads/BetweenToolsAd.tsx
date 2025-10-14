@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { AD_CONFIG, shouldShowAds, getAdUnitId, isTestMode } from '@/lib/ad-config';
+import { adLoader } from '@/lib/ad-loader';
 
 interface BetweenToolsAdProps {
   className?: string;
@@ -111,7 +112,7 @@ export function BetweenToolsAd({
             className="adsbygoogle"
             style={{ display: 'block' }}
             data-ad-client={AD_CONFIG.googleAdSense.clientId}
-            data-ad-slot={getAdUnitId('betweenToolsMobile')}
+            data-ad-slot={adLoader.getAdUnitId('betweenToolsMobile')}
             data-ad-format="rectangle"
             data-full-width-responsive="false"
           />
@@ -128,7 +129,7 @@ export function BetweenToolsAd({
             className="adsbygoogle"
             style={{ display: 'block' }}
             data-ad-client={AD_CONFIG.googleAdSense.clientId}
-            data-ad-slot={getAdUnitId('betweenToolsDesktop')}
+            data-ad-slot={adLoader.getAdUnitId('betweenToolsDesktop')}
             data-ad-format="auto"
             data-full-width-responsive="true"
           />

@@ -10,7 +10,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import { PageTrackerComponent } from "@/components/PageTracker";
 import { GoogleCMP } from "@/components/GoogleCMP";
-import { AMPAutoAds } from "@/components/ads/AMPAutoAds";
+// import { AMPAutoAds } from "@/components/ads/AMPAutoAds"; // Disabled
+import { initializeModernEventHandling } from "@/lib/event-utils";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export const metadata: Metadata = {
   title: "ImageResizerNow | Resize, Compress & Convert Images Online FREE",
@@ -40,6 +42,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         {/* Favicon removed temporarily to fix Vercel build */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -92,6 +95,7 @@ export default function RootLayout({
           async 
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1125405879614984"
           crossOrigin="anonymous"
+          data-ad-client="ca-pub-1125405879614984"
         />
         
         {/* AMP Auto Ads */}
@@ -105,11 +109,38 @@ export default function RootLayout({
         <script 
           async 
           src="https://fundingchoicesmessages.google.com/i/pub-1125405879614984?ers=1"
+          onError={(e) => console.warn('Google CMP script failed to load:', e)}
         />
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
+                // Initialize modern event handling to prevent deprecated unload events
+                if (typeof window !== 'undefined') {
+                  // Clean up any existing unload listeners
+                  const originalAddEventListener = window.addEventListener;
+                  window.addEventListener = function(type, listener, options) {
+                    if (type === 'unload') {
+                      console.warn('Deprecated unload event prevented. Using pagehide instead.');
+                      return;
+                    }
+                    return originalAddEventListener.call(this, type, listener, options);
+                  };
+                }
+
+                // Initialize Google CMP with better error handling
+                function initializeGoogleCMP() {
+                  try {
+                    // Ensure googlefc object exists
+                    window.googlefc = window.googlefc || {};
+                    window.googlefc.callbackQueue = window.googlefc.callbackQueue || [];
+                    
+                    console.log('Google CMP initialized');
+                  } catch (error) {
+                    console.error('Error initializing Google CMP:', error);
+                  }
+                }
+
                 function signalGooglefcPresent() {
                   if (!window.frames['googlefcPresent']) {
                     if (document.body) {
@@ -120,13 +151,22 @@ export default function RootLayout({
                       iframe.style.zIndex = '-1000';
                       iframe.style.left = '-1000px';
                       iframe.style.top = '-1000px';
+                      iframe.style.position = 'absolute';
+                      iframe.style.visibility = 'hidden';
                       iframe.name = 'googlefcPresent';
+                      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+                      iframe.setAttribute('loading', 'lazy');
+                      iframe.setAttribute('aria-hidden', 'true');
+                      iframe.setAttribute('role', 'presentation');
                       document.body.appendChild(iframe);
                     } else {
                       setTimeout(signalGooglefcPresent, 0);
                     }
                   }
                 }
+                
+                // Initialize immediately
+                initializeGoogleCMP();
                 signalGooglefcPresent();
               })();
             `,
@@ -134,23 +174,47 @@ export default function RootLayout({
         />
       </head>
       <body className={cn("font-body antialiased", "min-h-screen bg-background")}>
-        {/* AMP Auto Ads for all pages */}
-        <AMPAutoAds />
+        {/* Initialize modern event handling */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Initialize modern event handling to replace deprecated unload events
+              (function() {
+                // Use pagehide instead of unload for better reliability
+                window.addEventListener('pagehide', function(event) {
+                  // Handle page cleanup here instead of using unload
+                  console.log('Page is being hidden/unloaded');
+                });
+                
+                // Use beforeunload only when necessary
+                window.addEventListener('beforeunload', function(event) {
+                  // Only prevent navigation if there are unsaved changes
+                  // This is more user-friendly than always preventing navigation
+                });
+              })();
+            `,
+          }}
+        />
         
-        <AuthProvider>
-          <AdminAuthProvider>
-            <ImageStoreProvider>
-              <PageTrackerComponent />
-              <div className="relative flex min-h-screen flex-col">
-                <Header />
-                <main className="flex-1">{children}</main>
-                <Footer />
-              </div>
-              <Toaster />
-              <GoogleCMP />
-            </ImageStoreProvider>
-          </AdminAuthProvider>
-        </AuthProvider>
+        {/* AMP Auto Ads for all pages - DISABLED */}
+        {/* <AMPAutoAds /> */}
+        
+        <ErrorBoundary>
+          <AuthProvider>
+            <AdminAuthProvider>
+              <ImageStoreProvider>
+                <PageTrackerComponent />
+                <div className="relative flex min-h-screen flex-col">
+                  <Header />
+                  <main className="flex-1">{children}</main>
+                  <Footer />
+                </div>
+                <Toaster />
+                <GoogleCMP />
+              </ImageStoreProvider>
+            </AdminAuthProvider>
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

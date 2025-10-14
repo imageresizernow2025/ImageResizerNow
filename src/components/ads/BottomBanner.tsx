@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { AD_CONFIG, shouldShowAds, getAdUnitId, isTestMode } from '@/lib/ad-config';
+import { adLoader } from '@/lib/ad-loader';
 
 interface BottomBannerProps {
   className?: string;
@@ -111,7 +112,7 @@ export function BottomBanner({
             className="adsbygoogle"
             style={{ display: 'block' }}
             data-ad-client={AD_CONFIG.googleAdSense.clientId}
-            data-ad-slot={getAdUnitId('bottomBannerMobile')}
+            data-ad-slot={adLoader.getAdUnitId('bottomBannerMobile')}
             data-ad-format="auto"
             data-full-width-responsive="true"
           />
@@ -128,7 +129,7 @@ export function BottomBanner({
             className="adsbygoogle"
             style={{ display: 'block' }}
             data-ad-client={AD_CONFIG.googleAdSense.clientId}
-            data-ad-slot={getAdUnitId('bottomBannerDesktop')}
+            data-ad-slot={adLoader.getAdUnitId('bottomBannerDesktop')}
             data-ad-format="auto"
             data-full-width-responsive="true"
           />

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { AD_CONFIG, shouldShowAds, getAdUnitId, isTestMode } from '@/lib/ad-config';
+import { adLoader } from '@/lib/ad-loader';
 
 interface TopBannerProps {
   className?: string;
@@ -111,7 +112,7 @@ export function TopBanner({
             className="adsbygoogle"
             style={{ display: 'block' }}
             data-ad-client={AD_CONFIG.googleAdSense.clientId}
-            data-ad-slot={getAdUnitId('topBannerMobile')}
+            data-ad-slot={adLoader.getAdUnitId('topBannerMobile')}
             data-ad-format="auto"
             data-full-width-responsive="true"
           />
@@ -128,7 +129,7 @@ export function TopBanner({
             className="adsbygoogle"
             style={{ display: 'block' }}
             data-ad-client={AD_CONFIG.googleAdSense.clientId}
-            data-ad-slot={getAdUnitId('topBannerDesktop')}
+            data-ad-slot={adLoader.getAdUnitId('topBannerDesktop')}
             data-ad-format="auto"
             data-full-width-responsive="true"
           />

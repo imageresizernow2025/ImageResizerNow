@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { AD_CONFIG, shouldShowAds, getAdUnitId, isTestMode } from '@/lib/ad-config';
+import { adLoader } from '@/lib/ad-loader';
 
 interface NativeAdProps {
   className?: string;
@@ -79,7 +80,9 @@ export function NativeAd({
       script.async = true;
       script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${AD_CONFIG.googleAdSense.clientId}`;
       script.crossOrigin = 'anonymous';
+      script.setAttribute('data-ad-client', AD_CONFIG.googleAdSense.clientId);
       script.onload = loadAdSense;
+      script.onerror = () => console.warn('AdSense script failed to load');
       document.head.appendChild(script);
     } else {
       loadAdSense();
@@ -116,7 +119,7 @@ export function NativeAd({
         className="adsbygoogle"
         style={{ display: 'block' }}
         data-ad-client={AD_CONFIG.googleAdSense.clientId}
-        data-ad-slot={getAdUnitId('nativeAd')}
+        data-ad-slot={adLoader.getAdUnitId('nativeAd')}
         data-ad-format="fluid"
         data-layout-key="-6t+ed+2i-1n-4w"
       />

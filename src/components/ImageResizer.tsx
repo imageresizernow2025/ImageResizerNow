@@ -50,9 +50,9 @@ import { cn } from "@/lib/utils";
 import { Badge } from "./ui/badge";
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { NativeAd } from './ads/NativeAd';
-import { AdWrapper } from './ads/AdWrapper';
-import { ModalAd } from './ads/ModalAd';
+// import { NativeAd } from './ads/NativeAd'; // Disabled
+// import { AdWrapper } from './ads/AdWrapper'; // Disabled
+// import { ModalAd } from './ads/ModalAd'; // Disabled
 
 
 const plans = {
@@ -172,6 +172,11 @@ export function ImageResizer() {
 
   // Keyboard shortcuts
   useEffect(() => {
+    // Check if we're in a browser environment
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl/Cmd + O to open file dialog
       if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
@@ -223,6 +228,13 @@ export function ImageResizer() {
     if (!user) {
       // For anonymous users, use localStorage to track daily usage
       const today = new Date().toISOString().split('T')[0];
+      
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+        // If not in browser, allow processing (SSR fallback)
+        return false;
+      }
+      
       const savedUsage = localStorage.getItem('imageResizerAnonymousUsage');
       
       let currentUsage = 0;
@@ -352,6 +364,11 @@ export function ImageResizer() {
   ): Promise<ResizedImage> => {
     return new Promise((resolve, reject) => {
         const activePlan = user ? currentPlan : plans['ANONYMOUS'];
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined' || typeof document === 'undefined') {
+        return reject(new Error('Not in browser environment'));
+      }
+
       const img = new window.Image();
       img.src = imageFile.previewUrl;
       img.onload = () => {
@@ -581,14 +598,16 @@ export function ImageResizer() {
           console.log('✅ Image processing tracked successfully');
           
           // Dispatch custom event to notify admin pages
-          window.dispatchEvent(new CustomEvent('imageProcessed', {
-            detail: {
-              user_id: user?.id,
-              guest_id: trackingData.guest_id,
-              file_count: trackingData.file_count,
-              timestamp: new Date().toISOString()
-            }
-          }));
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('imageProcessed', {
+              detail: {
+                user_id: user?.id,
+                guest_id: trackingData.guest_id,
+                file_count: trackingData.file_count,
+                timestamp: new Date().toISOString()
+              }
+            }));
+          }
         } else {
           const errorText = await response.text();
           console.error('❌ Tracking failed:', response.status, errorText);
@@ -650,6 +669,13 @@ export function ImageResizer() {
 
   const downloadImage = (image: ResizedImage) => {
     if (!image.resizedUrl) return;
+    
+    // Check if we're in a browser environment
+    if (typeof document === 'undefined') {
+      console.error('Download not available - not in browser environment');
+      return;
+    }
+    
     const link = document.createElement('a');
     link.href = image.resizedUrl;
     const extension = format.split('/')[1] || 'jpg';
@@ -723,6 +749,13 @@ export function ImageResizer() {
 
     try {
       const content = await zip.generateAsync({ type: 'blob' });
+      
+      // Check if we're in a browser environment
+      if (typeof document === 'undefined' || typeof URL === 'undefined') {
+        console.error('Download not available - not in browser environment');
+        return;
+      }
+      
       const link = document.createElement('a');
       link.href = URL.createObjectURL(content);
       link.download = 'resized_images.zip';
@@ -837,6 +870,7 @@ export function ImageResizer() {
                         size="icon"
                         className="absolute right-2 top-2 h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
                         onClick={() => removeImage(image.id)}
+                        aria-label={`Remove ${image.name}`}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -866,6 +900,9 @@ export function ImageResizer() {
                 accept="image/*"
                 className="hidden"
                 onChange={(e) => handleFileSelect(e.target.files)}
+                id="file-upload"
+                name="file-upload"
+                aria-label="Upload images"
               />
             </CardContent>
           </Card>
@@ -876,6 +913,7 @@ export function ImageResizer() {
                     onClick={undo} 
                     disabled={!canUndo()}
                     size={isMobile ? "sm" : "default"}
+                    aria-label="Undo last action"
                   >
                       <Undo className="mr-2 h-4 w-4" />
                       Undo
@@ -885,6 +923,7 @@ export function ImageResizer() {
                     onClick={redo} 
                     disabled={!canRedo()}
                     size={isMobile ? "sm" : "default"}
+                    aria-label="Redo last undone action"
                   >
                       <Redo className="mr-2 h-4 w-4" />
                       Redo
@@ -907,11 +946,19 @@ export function ImageResizer() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <Label>Presets</Label>
-                <Select onValueChange={handlePresetChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a preset..." />
-                  </SelectTrigger>
+                <Label htmlFor="preset-select">Presets</Label>
+                <p id="preset-description" className="text-sm text-muted-foreground mb-2">
+                  Choose from popular image size presets for social media, web, or print
+                </p>
+                  <Select onValueChange={handlePresetChange}>
+                    <SelectTrigger 
+                      id="preset-select" 
+                      name="preset-select" 
+                      aria-label="Choose a preset"
+                      aria-describedby="preset-description"
+                    >
+                      <SelectValue placeholder="Choose a preset..." />
+                    </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
                       <SelectLabel>Social Media</SelectLabel>
@@ -956,16 +1003,35 @@ export function ImageResizer() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="width">Width</Label>
-                    <Input id="width" type="number" value={width} onChange={e => setWidth(Number(e.target.value))} />
+                    <Input 
+                      id="width" 
+                      name="width"
+                      type="number" 
+                      value={width} 
+                      onChange={e => setWidth(Number(e.target.value))}
+                      aria-label="Image width in pixels"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="height">Height</Label>
-                    <Input id="height" type="number" value={height} onChange={e => setHeight(Number(e.target.value))} />
+                    <Input 
+                      id="height" 
+                      name="height"
+                      type="number" 
+                      value={height} 
+                      onChange={e => setHeight(Number(e.target.value))}
+                      aria-label="Image height in pixels"
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
-                    <Switch id="aspect-ratio" checked={keepAspectRatio} onCheckedChange={setKeepAspectRatio} />
+                    <Switch 
+                      id="aspect-ratio" 
+                      checked={keepAspectRatio} 
+                      onCheckedChange={setKeepAspectRatio}
+                      aria-label="Maintain aspect ratio"
+                    />
                     <Label htmlFor="aspect-ratio" className="flex items-center gap-2">
                       <Ratio className="h-4 w-4" />
                       Maintain aspect ratio
@@ -990,8 +1056,16 @@ export function ImageResizer() {
               <div className="space-y-4">
                   <div className="space-y-2">
                       <Label htmlFor="format">Format</Label>
+                      <p id="format-description" className="text-sm text-muted-foreground mb-2">
+                        Choose the output image format
+                      </p>
                       <Select value={format} onValueChange={setFormat}>
-                          <SelectTrigger id="format">
+                          <SelectTrigger 
+                            id="format" 
+                            name="format" 
+                            aria-label="Choose image format"
+                            aria-describedby="format-description"
+                          >
                           <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1042,7 +1116,12 @@ export function ImageResizer() {
 
               <div className="space-y-2">
                   <div className="flex items-center space-x-2">
-                      <Switch id="client-processing" checked={clientProcessing} onCheckedChange={setClientProcessing} />
+                      <Switch 
+                        id="client-processing" 
+                        checked={clientProcessing} 
+                        onCheckedChange={setClientProcessing}
+                        aria-label="Enable fast client-side processing"
+                      />
                       <Label htmlFor="client-processing" className="flex items-center gap-2">
                           <Zap className="h-4 w-4" />
                           Fast client-side processing
@@ -1067,6 +1146,7 @@ export function ImageResizer() {
                       checked={saveToCloud} 
                       onCheckedChange={setSaveToCloud}
                       disabled={isUploadingToCloud}
+                      aria-label="Save images to cloud storage"
                     />
                     <Label htmlFor="cloud-storage" className="flex items-center gap-2">
                       <UploadCloud className="h-4 w-4" />
@@ -1088,15 +1168,15 @@ export function ImageResizer() {
                 </div>
               )}
 
-              {/* Native Ad for Registered Users */}
-              {user && (
+              {/* Native Ad for Registered Users - DISABLED */}
+              {/* {user && (
                 <NativeAd 
                   userType="registered"
                   title="Enhance Your Workflow"
                   description="Discover more professional image editing tools and productivity apps"
                   ctaText="Explore Tools"
                 />
-              )}
+              )} */}
 
               {/* Registration Prompt for Anonymous Users */}
               {!user && (
@@ -1137,10 +1217,10 @@ export function ImageResizer() {
           </Card>
         </div>
         
-        {/* Sidebar Ad - Desktop Only */}
-        <div className="hidden lg:block lg:col-span-1">
+        {/* Sidebar Ad - Desktop Only - DISABLED */}
+        {/* <div className="hidden lg:block lg:col-span-1">
           <AdWrapper type="sidebar" userType={user ? 'registered' : 'anonymous'} />
-        </div>
+        </div> */}
       </div>
       <AlertDialog open={showLimitModal} onOpenChange={setShowLimitModal}>
         <AlertDialogContent className="mx-4 max-w-md sm:max-w-lg">
@@ -1261,10 +1341,10 @@ export function ImageResizer() {
             
             <Separator className="flex-shrink-0" />
 
-            {/* Ad between progress and download quality - High engagement spot */}
-            <div className="flex-shrink-0 py-2">
+            {/* Ad between progress and download quality - High engagement spot - DISABLED */}
+            {/* <div className="flex-shrink-0 py-2">
               <ModalAd position="top" userType={user ? 'registered' : 'anonymous'} />
-            </div>
+            </div> */}
 
             {/* Download Quality Section - Fixed */}
             <div className="flex-shrink-0 py-4 space-y-3">
@@ -1290,10 +1370,10 @@ export function ImageResizer() {
 
             {/* Images Grid - Scrollable */}
             <div className="flex-1 overflow-y-auto pr-2 min-h-0">
-              {/* Ad at top of images grid - High visibility */}
-              <div className="mb-4">
+              {/* Ad at top of images grid - High visibility - DISABLED */}
+              {/* <div className="mb-4">
                 <ModalAd position="middle" userType={user ? 'registered' : 'anonymous'} />
-              </div>
+              </div> */}
               
               <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>
                 {images.map((image) => (
@@ -1378,7 +1458,7 @@ export function ImageResizer() {
             <Separator className="flex-shrink-0" />
             
             {/* Native ad for registered users before footer */}
-            {user && (
+            {/* {user && (
               <div className="flex-shrink-0 py-2">
                 <NativeAd 
                   userType="registered"
@@ -1387,12 +1467,12 @@ export function ImageResizer() {
                   ctaText="Explore All Tools"
                 />
               </div>
-            )}
+            )} */}
             
-            {/* Bottom ad for all users */}
-            <div className="flex-shrink-0 py-2">
+            {/* Bottom ad for all users - DISABLED */}
+            {/* <div className="flex-shrink-0 py-2">
               <ModalAd position="bottom" userType={user ? 'registered' : 'anonymous'} />
-            </div>
+            </div> */}
             
             {/* Footer - Fixed at bottom */}
             <div className="flex items-center justify-between flex-shrink-0 py-4">

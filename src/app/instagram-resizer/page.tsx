@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { FAQ } from '@/components/FAQ';
 import { StructuredDataLayout } from '@/components/StructuredDataLayout';
-import { AdWrapper } from '@/components/ads/AdWrapper';
+// import { AdWrapper } from '@/components/ads/AdWrapper'; // Disabled
 import { ArrowLeft, CheckCircle2, Instagram, Download, Upload } from 'lucide-react';
 import Link from 'next/link';
 import type { Metadata } from 'next';
@@ -180,7 +180,7 @@ export default function InstagramResizerPage() {const structuredData = [
     <StructuredDataLayout structuredData={structuredData}>
       <div className="container mx-auto max-w-7xl px-4 py-8 md:py-12">
         <Breadcrumb items={[{ label: 'Instagram Image Resizer' }]} />
-        <AdWrapper type="top" />
+        {/* <AdWrapper type="top" /> */}
         <div className="mb-12 text-center">
             <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
                 Instagram Image Resizer
@@ -210,7 +210,7 @@ export default function InstagramResizerPage() {const structuredData = [
             <ImageResizer />
           </div>
           <div className="lg:w-80">
-            <AdWrapper type="sidebar" />
+            {/* <AdWrapper type="sidebar" /> */}
           </div>
         </div>
 
@@ -246,7 +246,7 @@ export default function InstagramResizerPage() {const structuredData = [
         </div>
 
         <FAQ items={faqItems} />
-        <AdWrapper type="bottom" />
+        {/* <AdWrapper type="bottom" /> */}
       </div>
     </StructuredDataLayout>
   );

@@ -22,6 +22,11 @@ export class PageTracker {
 
   // Get or create guest ID for anonymous users
   private static getOrCreateGuestId(): string {
+    // Check if we're in a browser environment
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+    
     let guestId = localStorage.getItem('guest_id');
     if (!guestId) {
       guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -37,6 +42,12 @@ export class PageTracker {
     referrer?: string
   ) {
     try {
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined' || typeof document === 'undefined' || typeof navigator === 'undefined') {
+        console.warn('Page tracking skipped - not in browser environment');
+        return;
+      }
+
       const trackingData = {
         user_id: this.userId,
         guest_id: this.guestId,
@@ -63,6 +74,12 @@ export class PageTracker {
 
   // Track page with automatic referrer detection
   static async trackPageView(pagePath: string, pageTitle?: string) {
+    // Check if we're in a browser environment
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      console.warn('Page tracking skipped - not in browser environment');
+      return;
+    }
+    
     const referrer = document.referrer || window.location.href;
     await this.trackPage(pagePath, pageTitle, referrer);
   }

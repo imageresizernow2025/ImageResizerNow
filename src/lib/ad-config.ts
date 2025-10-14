@@ -11,24 +11,24 @@ export const AD_CONFIG = {
   
   // Ad Unit IDs (replace with your actual ad unit IDs from Google AdSense)
   adUnits: {
-    // Banner Ads
-    topBannerMobile: 'xxxxxxxxxx', // 320x50 mobile banner
-    topBannerDesktop: 'xxxxxxxxxx', // 728x90 desktop banner
-    bottomBannerMobile: 'xxxxxxxxxx', // 320x50 mobile banner
-    bottomBannerDesktop: 'xxxxxxxxxx', // 728x90 desktop banner
+    // Banner Ads - Disabled until real ad units are configured
+    topBannerMobile: '', // 320x50 mobile banner
+    topBannerDesktop: '', // 728x90 desktop banner
+    bottomBannerMobile: '', // 320x50 mobile banner
+    bottomBannerDesktop: '', // 728x90 desktop banner
     
     // Rectangle Ads
-    sidebarAd: 'xxxxxxxxxx', // 300x250 rectangle
-    betweenToolsMobile: 'xxxxxxxxxx', // 300x250 mobile rectangle
-    betweenToolsDesktop: 'xxxxxxxxxx', // 728x90 desktop banner
+    sidebarAd: '', // 300x250 rectangle
+    betweenToolsMobile: '', // 300x250 mobile rectangle
+    betweenToolsDesktop: '', // 728x90 desktop banner
     
     // Modal Ads
-    modalTop: 'xxxxxxxxxx', // 320x50 modal top banner
-    modalMiddle: 'xxxxxxxxxx', // 300x250 modal rectangle
-    modalBottom: 'xxxxxxxxxx', // 320x50 modal bottom banner
+    modalTop: '', // 320x50 modal top banner
+    modalMiddle: '', // 300x250 modal rectangle
+    modalBottom: '', // 320x50 modal bottom banner
     
     // Native Ads
-    nativeAd: 'xxxxxxxxxx', // Native ad unit
+    nativeAd: '', // Native ad unit
   },
   
   // Ad Sizes

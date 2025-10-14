@@ -84,6 +84,7 @@ export default function AdminLoginPage() {
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
                     id="email"
+                    name="email"
                     type="email"
                     placeholder="admin@example.com"
                     value={email}
@@ -101,6 +102,7 @@ export default function AdminLoginPage() {
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
                     id="password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
                     value={password}

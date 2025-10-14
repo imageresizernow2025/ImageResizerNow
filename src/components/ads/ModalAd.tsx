@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { AD_CONFIG, shouldShowAds, getAdUnitId, isTestMode } from '@/lib/ad-config';
+import { adLoader } from '@/lib/ad-loader';
 
 interface ModalAdProps {
   className?: string;
@@ -74,7 +75,9 @@ export function ModalAd({
       script.async = true;
       script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${AD_CONFIG.googleAdSense.clientId}`;
       script.crossOrigin = 'anonymous';
+      script.setAttribute('data-ad-client', AD_CONFIG.googleAdSense.clientId);
       script.onload = loadAdSense;
+      script.onerror = () => console.warn('AdSense script failed to load');
       document.head.appendChild(script);
     } else {
       loadAdSense();
@@ -127,7 +130,7 @@ export function ModalAd({
             className="adsbygoogle"
             style={{ display: 'block' }}
             data-ad-client={AD_CONFIG.googleAdSense.clientId}
-            data-ad-slot={getAdUnitId(position === 'top' ? 'modalTop' : 'modalBottom')}
+            data-ad-slot={adLoader.getAdUnitId(position === 'top' ? 'modalTop' : 'modalBottom')}
             data-ad-format="auto"
             data-full-width-responsive="true"
           />
@@ -139,7 +142,7 @@ export function ModalAd({
             className="adsbygoogle"
             style={{ display: 'block' }}
             data-ad-client={AD_CONFIG.googleAdSense.clientId}
-            data-ad-slot={getAdUnitId('modalMiddle')}
+            data-ad-slot={adLoader.getAdUnitId('modalMiddle')}
             data-ad-format="rectangle"
             data-full-width-responsive="false"
           />

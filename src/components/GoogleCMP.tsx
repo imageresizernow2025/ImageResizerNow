@@ -24,6 +24,10 @@ declare global {
         personalization_storage?: 'granted' | 'denied';
         security_storage?: 'granted' | 'denied';
       }) => void;
+      callbackQueue: Array<{
+        CONSENT_DATA_READY?: () => void;
+      }>;
+      controlledMessagingFunction?: () => void;
     };
   }
 }
@@ -31,55 +35,154 @@ declare global {
 export function GoogleCMP() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [consentStatus, setConsentStatus] = useState<any>(null);
+  const [initializationAttempts, setInitializationAttempts] = useState(0);
 
   useEffect(() => {
-    // Wait for Google CMP to load
-    const checkGoogleFC = () => {
-      if (window.googlefc) {
-        setIsLoaded(true);
-        console.log('Google CMP loaded successfully');
-        
-        // Get current consent status
-        window.googlefc.getConsentStatus().then((status) => {
-          setConsentStatus(status);
-          console.log('Current consent status:', status);
-        });
-      } else {
-        setTimeout(checkGoogleFC, 100);
+    let timeoutId: NodeJS.Timeout;
+    let intervalId: NodeJS.Timeout;
+    const maxAttempts = 50; // Maximum attempts over 5 seconds
+
+    const initializeGoogleCMP = () => {
+      try {
+        // Ensure window.googlefc exists
+        if (typeof window !== 'undefined') {
+          window.googlefc = window.googlefc || {};
+          window.googlefc.callbackQueue = window.googlefc.callbackQueue || [];
+        }
+      } catch (error) {
+        console.error('Error initializing Google CMP:', error);
       }
     };
 
-    checkGoogleFC();
-  }, []);
+    const checkGoogleFC = () => {
+      try {
+        if (window.googlefc && typeof window.googlefc.getConsentStatus === 'function') {
+          setIsLoaded(true);
+          console.log('Google CMP loaded successfully');
+          
+          // Get current consent status
+          window.googlefc.getConsentStatus().then((status) => {
+            setConsentStatus(status);
+            console.log('Current consent status:', status);
+          }).catch((error) => {
+            console.error('Error getting consent status:', error);
+          });
+          
+          // Clear intervals
+          if (intervalId) clearInterval(intervalId);
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Error checking Google CMP:', error);
+        return false;
+      }
+    };
+
+    const attemptInitialization = () => {
+      setInitializationAttempts(prev => prev + 1);
+      
+      if (checkGoogleFC()) {
+        return;
+      }
+      
+      if (initializationAttempts >= maxAttempts) {
+        console.warn('Google CMP failed to load after maximum attempts');
+        return;
+      }
+      
+      // Try again after a short delay
+      timeoutId = setTimeout(attemptInitialization, 100);
+    };
+
+    // Initialize Google CMP immediately
+    initializeGoogleCMP();
+
+    // Add callback to queue for when consent data is ready
+    try {
+      if (window.googlefc && window.googlefc.callbackQueue) {
+        window.googlefc.callbackQueue.push({
+          'CONSENT_DATA_READY': function () {
+            try {
+              if (window.googlefc && typeof window.googlefc.getConsentStatus === 'function') {
+                setIsLoaded(true);
+                console.log('Google CMP loaded via callback queue');
+                
+                window.googlefc.getConsentStatus().then((status) => {
+                  setConsentStatus(status);
+                  console.log('Current consent status:', status);
+                }).catch((error) => {
+                  console.error('Error getting consent status:', error);
+                });
+              }
+            } catch (error) {
+              console.error('Error in CONSENT_DATA_READY callback:', error);
+            }
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error setting up callback queue:', error);
+    }
+
+    // Start fallback polling
+    timeoutId = setTimeout(attemptInitialization, 500);
+
+    // Cleanup function
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [initializationAttempts]);
 
   const showConsentBanner = () => {
-    if (window.googlefc) {
-      window.googlefc.showConsentBanner();
+    try {
+      if (window.googlefc && typeof window.googlefc.showConsentBanner === 'function') {
+        window.googlefc.showConsentBanner();
+      }
+    } catch (error) {
+      console.error('Error showing consent banner:', error);
     }
   };
 
   const showConsentModal = () => {
-    if (window.googlefc) {
-      window.googlefc.showConsentModal();
+    try {
+      if (window.googlefc && typeof window.googlefc.showConsentModal === 'function') {
+        window.googlefc.showConsentModal();
+      }
+    } catch (error) {
+      console.error('Error showing consent modal:', error);
     }
   };
 
   const hideConsentBanner = () => {
-    if (window.googlefc) {
-      window.googlefc.hideConsentBanner();
+    try {
+      if (window.googlefc && typeof window.googlefc.hideConsentBanner === 'function') {
+        window.googlefc.hideConsentBanner();
+      }
+    } catch (error) {
+      console.error('Error hiding consent banner:', error);
     }
   };
 
   const hideConsentModal = () => {
-    if (window.googlefc) {
-      window.googlefc.hideConsentModal();
+    try {
+      if (window.googlefc && typeof window.googlefc.hideConsentModal === 'function') {
+        window.googlefc.hideConsentModal();
+      }
+    } catch (error) {
+      console.error('Error hiding consent modal:', error);
     }
   };
 
   const setConsent = (consent: any) => {
-    if (window.googlefc) {
-      window.googlefc.setConsentStatus(consent);
-      setConsentStatus(consent);
+    try {
+      if (window.googlefc && typeof window.googlefc.setConsentStatus === 'function') {
+        window.googlefc.setConsentStatus(consent);
+        setConsentStatus(consent);
+      }
+    } catch (error) {
+      console.error('Error setting consent status:', error);
     }
   };
 
@@ -92,50 +195,154 @@ export function GoogleCMP() {
 export function useGoogleCMP() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [consentStatus, setConsentStatus] = useState<any>(null);
+  const [initializationAttempts, setInitializationAttempts] = useState(0);
 
   useEffect(() => {
-    const checkGoogleFC = () => {
-      if (window.googlefc) {
-        setIsLoaded(true);
-        window.googlefc.getConsentStatus().then((status) => {
-          setConsentStatus(status);
-        });
-      } else {
-        setTimeout(checkGoogleFC, 100);
+    let timeoutId: NodeJS.Timeout;
+    let intervalId: NodeJS.Timeout;
+    const maxAttempts = 50; // Maximum attempts over 5 seconds
+
+    const initializeGoogleCMP = () => {
+      try {
+        // Ensure window.googlefc exists
+        if (typeof window !== 'undefined') {
+          window.googlefc = window.googlefc || {};
+          window.googlefc.callbackQueue = window.googlefc.callbackQueue || [];
+        }
+      } catch (error) {
+        console.error('Error initializing Google CMP:', error);
       }
     };
 
-    checkGoogleFC();
-  }, []);
+    const checkGoogleFC = () => {
+      try {
+        if (window.googlefc && typeof window.googlefc.getConsentStatus === 'function') {
+          setIsLoaded(true);
+          console.log('Google CMP loaded successfully (hook)');
+          
+          // Get current consent status
+          window.googlefc.getConsentStatus().then((status) => {
+            setConsentStatus(status);
+            console.log('Current consent status (hook):', status);
+          }).catch((error) => {
+            console.error('Error getting consent status (hook):', error);
+          });
+          
+          // Clear intervals
+          if (intervalId) clearInterval(intervalId);
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Error checking Google CMP (hook):', error);
+        return false;
+      }
+    };
+
+    const attemptInitialization = () => {
+      setInitializationAttempts(prev => prev + 1);
+      
+      if (checkGoogleFC()) {
+        return;
+      }
+      
+      if (initializationAttempts >= maxAttempts) {
+        console.warn('Google CMP failed to load after maximum attempts (hook)');
+        return;
+      }
+      
+      // Try again after a short delay
+      timeoutId = setTimeout(attemptInitialization, 100);
+    };
+
+    // Initialize Google CMP immediately
+    initializeGoogleCMP();
+
+    // Add callback to queue for when consent data is ready
+    try {
+      if (window.googlefc && window.googlefc.callbackQueue) {
+        window.googlefc.callbackQueue.push({
+          'CONSENT_DATA_READY': function () {
+            try {
+              if (window.googlefc && typeof window.googlefc.getConsentStatus === 'function') {
+                setIsLoaded(true);
+                console.log('Google CMP loaded via callback queue (hook)');
+                
+                window.googlefc.getConsentStatus().then((status) => {
+                  setConsentStatus(status);
+                  console.log('Current consent status (hook):', status);
+                }).catch((error) => {
+                  console.error('Error getting consent status (hook):', error);
+                });
+              }
+            } catch (error) {
+              console.error('Error in CONSENT_DATA_READY callback (hook):', error);
+            }
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error setting up callback queue (hook):', error);
+    }
+
+    // Start fallback polling
+    timeoutId = setTimeout(attemptInitialization, 500);
+
+    // Cleanup function
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [initializationAttempts]);
 
   const showConsentBanner = () => {
-    if (window.googlefc) {
-      window.googlefc.showConsentBanner();
+    try {
+      if (window.googlefc && typeof window.googlefc.showConsentBanner === 'function') {
+        window.googlefc.showConsentBanner();
+      }
+    } catch (error) {
+      console.error('Error showing consent banner:', error);
     }
   };
 
   const showConsentModal = () => {
-    if (window.googlefc) {
-      window.googlefc.showConsentModal();
+    try {
+      if (window.googlefc && typeof window.googlefc.showConsentModal === 'function') {
+        window.googlefc.showConsentModal();
+      }
+    } catch (error) {
+      console.error('Error showing consent modal:', error);
     }
   };
 
   const hideConsentBanner = () => {
-    if (window.googlefc) {
-      window.googlefc.hideConsentBanner();
+    try {
+      if (window.googlefc && typeof window.googlefc.hideConsentBanner === 'function') {
+        window.googlefc.hideConsentBanner();
+      }
+    } catch (error) {
+      console.error('Error hiding consent banner:', error);
     }
   };
 
   const hideConsentModal = () => {
-    if (window.googlefc) {
-      window.googlefc.hideConsentModal();
+    try {
+      if (window.googlefc && typeof window.googlefc.hideConsentModal === 'function') {
+        window.googlefc.hideConsentModal();
+      }
+    } catch (error) {
+      console.error('Error hiding consent modal:', error);
     }
   };
 
   const setConsent = (consent: any) => {
-    if (window.googlefc) {
-      window.googlefc.setConsentStatus(consent);
-      setConsentStatus(consent);
+    try {
+      if (window.googlefc && typeof window.googlefc.setConsentStatus === 'function') {
+        window.googlefc.setConsentStatus(consent);
+        setConsentStatus(consent);
+      }
+    } catch (error) {
+      console.error('Error setting consent status:', error);
     }
   };
 
