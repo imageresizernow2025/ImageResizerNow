@@ -40,7 +40,7 @@ export function GoogleCMP() {
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
     let intervalId: NodeJS.Timeout;
-    const maxAttempts = 50; // Maximum attempts over 5 seconds
+        const maxAttempts = 10; // Maximum attempts over 1 second
 
     const initializeGoogleCMP = () => {
       try {
@@ -87,7 +87,7 @@ export function GoogleCMP() {
       }
       
       if (initializationAttempts >= maxAttempts) {
-        console.warn('Google CMP failed to load after maximum attempts');
+        console.log('Google CMP not available - continuing without consent management');
         return;
       }
       
@@ -200,7 +200,7 @@ export function useGoogleCMP() {
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
     let intervalId: NodeJS.Timeout;
-    const maxAttempts = 50; // Maximum attempts over 5 seconds
+        const maxAttempts = 10; // Maximum attempts over 1 second
 
     const initializeGoogleCMP = () => {
       try {
