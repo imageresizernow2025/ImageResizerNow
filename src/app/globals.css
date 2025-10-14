@@ -68,6 +68,12 @@
   * {
     @apply border-border;
   }
+  
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  
   body {
     @apply bg-background text-foreground;
   }
@@ -92,5 +98,28 @@
   /* Suppress hydration warnings for elements commonly affected by browser extensions */
   [data-suppress-hydration-warning] {
     /* This class can be added to elements that are commonly affected by browser extensions */
+  }
+  
+  /* Fix CSS compatibility issues */
+  .text-size-adjust-fix {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  
+  .backdrop-filter-fix {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  
+  .mask-image-fix {
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0) 0%, black 10%);
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0) 0%, black 10%);
+  }
+  
+  .user-select-fix {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
   }
 }
