@@ -33,9 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = async () => {
     try {
-      // Debug authentication state before making request
-      debugAuthState();
-      
       const response = await fetch('/api/auth/me', {
         credentials: 'include',
         headers: {
@@ -44,18 +41,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
       
-      console.log('Auth refresh response status:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
         console.log('User authenticated successfully:', data.user.email);
       } else if (response.status === 401) {
-        // Clear user state on authentication error
-        console.log('User not authenticated (401), clearing user state');
+        // This is normal for unauthenticated users - no need to log
         setUser(null);
-        // Clear all authentication data
-        clearAllAuthData();
+        // Only clear auth data if we had a user before (to avoid unnecessary operations)
+        if (user) {
+          clearAllAuthData();
+        }
       } else if (response.status === 503) {
         // Database temporarily unavailable - keep current state but log warning
         console.warn('Database temporarily unavailable, keeping current session');
@@ -142,6 +138,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        // Enable detailed debugging in development mode
+        if (process.env.NODE_ENV === 'development' && window.location.search.includes('debug=auth')) {
+          debugAuthState();
+        }
+        
         await refreshUser();
       } catch (error) {
         console.error('Initial auth check failed:', error);

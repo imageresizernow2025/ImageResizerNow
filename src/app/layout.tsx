@@ -246,20 +246,20 @@ export default function RootLayout({
         {/* <AMPAutoAds /> */}
         
         <ErrorBoundary>
-          <AuthProvider>
-            <AdminAuthProvider>
-              <ImageStoreProvider>
-                <PageTrackerComponent />
-                <div className="relative flex min-h-screen flex-col">
-                  <Header />
-                  <main className="flex-1">{children}</main>
-                  <Footer />
-                </div>
-                <Toaster />
-                <GoogleCMP />
-              </ImageStoreProvider>
-            </AdminAuthProvider>
-          </AuthProvider>
+        <AuthProvider>
+          <AdminAuthProvider>
+            <ImageStoreProvider>
+              <PageTrackerComponent />
+              <div className="relative flex min-h-screen flex-col">
+                <Header />
+                <main className="flex-1">{children}</main>
+                <Footer />
+              </div>
+              <Toaster />
+              <GoogleCMP />
+            </ImageStoreProvider>
+          </AdminAuthProvider>
+        </AuthProvider>
         </ErrorBoundary>
       </body>
     </html>

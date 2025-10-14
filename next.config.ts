@@ -99,8 +99,13 @@ const nextConfig: NextConfig = {
     ];
   },
   
-  // Webpack optimizations
-  webpack: (config, { dev, isServer }) => {
+  // Webpack optimizations (only when not using Turbopack)
+  webpack: (config, { dev, isServer, webpack }) => {
+    // Skip Webpack optimizations when using Turbopack
+    if (process.env.TURBOPACK) {
+      return config;
+    }
+    
     // Production optimizations
     if (!dev && !isServer) {
       config.optimization.splitChunks = {
