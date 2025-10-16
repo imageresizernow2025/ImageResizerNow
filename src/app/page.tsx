@@ -34,6 +34,7 @@ const popularTools = [
 export default function Home() {
   return (
     <div className="container mx-auto max-w-7xl px-4 py-4 md:py-6">
+      {/* Force rebuild - updated version */}
       {/* AMP Auto Ads - DISABLED */}
       {/* <AMPAutoAds /> */}
       
