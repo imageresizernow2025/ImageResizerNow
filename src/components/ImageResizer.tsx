@@ -305,7 +305,7 @@ export function ImageResizer() {
     const newImages: ResizedImage[] = filesArray
       .filter((file) => file.type.startsWith("image/"))
       .map((file) => ({
-        id: `${file.name}-${file.lastModified}`,
+        id: `${file.name}-${file.lastModified}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         originalFile: file,
         previewUrl: URL.createObjectURL(file),
         originalSize: file.size,
@@ -313,6 +313,11 @@ export function ImageResizer() {
       }));
 
     setImages([...images, ...newImages]);
+    
+    // Reset file input to allow re-uploading the same file
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleContinueAsGuest = () => {
