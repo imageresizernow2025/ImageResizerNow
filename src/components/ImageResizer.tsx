@@ -432,7 +432,8 @@ export function ImageResizer() {
           original: `${img.width}x${img.height}`,
           target: `${options.width}x${options.height}`,
           mode: options.resizeMode,
-          keepAspectRatio: options.keepAspectRatio
+          keepAspectRatio: options.keepAspectRatio,
+          willResize: img.width !== options.width || img.height !== options.height
         });
         
         // Test cover mode calculation
@@ -593,10 +594,11 @@ export function ImageResizer() {
             sourceHeight: originalHeight
           };
         } else {
-          // If dimensions are the same, return original dimensions
+          // Even if dimensions are the same, we still need to process the image
+          // for quality/format changes, so return the target dimensions
           return {
-            targetWidth: originalWidth,
-            targetHeight: originalHeight,
+            targetWidth,
+            targetHeight,
             sourceX: 0,
             sourceY: 0,
             sourceWidth: originalWidth,
