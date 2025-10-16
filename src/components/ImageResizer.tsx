@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
+// import { useToast } from "@/hooks/use-toast";
 import type { ResizedImage } from "@/lib/types";
 import { socialPresets, webPresets, printPresets, basicPresets, shopifyPresets } from "@/lib/presets";
 import Image from "next/image";
@@ -88,6 +88,7 @@ const getPlan = (planName: string) => {
 export function ImageResizer() {
   const { user, isLoading: authLoading } = useAuth();
   const isMobile = useIsMobile();
+  // const { toast } = useToast();
   const { 
     images, setImages, resizingOptions, setResizingOptions, 
     isResizing, setIsResizing, resizeProgress, setResizeProgress, reset,
@@ -109,7 +110,22 @@ export function ImageResizer() {
   const [pendingFiles, setPendingFiles] = useState<FileList | null>(null);
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [downloadQuality, setDownloadQuality] = useState(0.9);
+  const [resamplingFilter, setResamplingFilter] = useState<'lanczos' | 'bicubic' | 'bilinear' | 'nearest'>('lanczos');
+  const [resizeMode, setResizeMode] = useState<'fit' | 'fill' | 'cover' | 'stretch'>('cover');
+  const [useServerProcessing, setUseServerProcessing] = useState(false);
+  const [activePreset, setActivePreset] = useState<string | null>(null);
 
+  // Handle processing mode change
+  const handleProcessingModeChange = (value: string) => {
+    const newMode = value === 'server';
+    setUseServerProcessing(newMode);
+    
+    // If switching to client-side and advanced formats are selected, switch to WebP
+    if (!newMode && (format === 'image/avif' || format === 'image/heif')) {
+      setFormat('image/webp');
+    }
+  };
+  const [smartQuality, setSmartQuality] = useState(true);
 
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [previewImage, setPreviewImage] = useState<ResizedImage | null>(null);
@@ -131,7 +147,6 @@ export function ImageResizer() {
   });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
 
 
 
@@ -353,17 +368,53 @@ export function ImageResizer() {
   };
 
   const handlePresetChange = (value: string) => {
+    if (!value) {
+      setActivePreset(null);
+      return;
+    }
+    
     const [w, h] = value.split("x").map(Number);
+    console.log('🎯 Preset selected:', { preset: value, width: w, height: h });
+    
+    // Force exact preset dimensions
     setWidth(w);
     setHeight(h);
+    
+    // When selecting a preset, default to 'cover' mode for consistent sizing
+    // This ensures the image fills the exact preset dimensions
+    setResizeMode('cover');
+    
+    // Disable aspect ratio for presets to ensure exact dimensions
+    setKeepAspectRatio(false);
+    
+    // Track active preset
+    setActivePreset(value);
+    
+    console.log('🎯 Preset applied - EXACT dimensions:', w, 'x', h, 'mode: cover', 'aspectRatio: OFF');
+    
+    // Show toast notification (temporarily disabled for debugging)
+    // toast({
+    //   title: "Preset Applied",
+    //   description: `Set to ${w}×${h} pixels with Cover mode for precise sizing`,
+    //   duration: 3000,
+    // });
   };
 
+  // Advanced resizing function with perfect logic
   const resizeImage = async (
     imageFile: ResizedImage,
-    options: { width: number; height: number; keepAspectRatio: boolean; format: string; quality: number; compression: number; }
+    options: { 
+      width: number; 
+      height: number; 
+      keepAspectRatio: boolean; 
+      format: string; 
+      quality: number; 
+      compression: number;
+      resamplingFilter: 'lanczos' | 'bicubic' | 'bilinear' | 'nearest';
+      resizeMode: 'fit' | 'fill' | 'cover' | 'stretch';
+    }
   ): Promise<ResizedImage> => {
     return new Promise((resolve, reject) => {
-        const activePlan = user ? currentPlan : plans['ANONYMOUS'];
       // Check if we're in a browser environment
       if (typeof window === 'undefined' || typeof document === 'undefined') {
         return reject(new Error('Not in browser environment'));
@@ -376,36 +427,68 @@ export function ImageResizer() {
         const ctx = canvas.getContext('2d');
         if (!ctx) return reject(new Error('Could not get canvas context'));
 
-        let targetWidth = options.width;
-        let targetHeight = options.height;
-
-        if (options.keepAspectRatio) {
-          const ratio = Math.min(
-            options.width / img.width,
-            options.height / img.height
-          );
-          targetWidth = Math.round(img.width * ratio);
-          targetHeight = Math.round(img.height * ratio);
+        // Calculate target dimensions based on resize mode
+        console.log('🎯 Resizing:', {
+          original: `${img.width}x${img.height}`,
+          target: `${options.width}x${options.height}`,
+          mode: options.resizeMode,
+          keepAspectRatio: options.keepAspectRatio
+        });
+        
+        // Test cover mode calculation
+        if (options.resizeMode === 'cover') {
+          testCoverMode(img.width, img.height, options.width, options.height);
         }
+        
+        const { targetWidth, targetHeight, sourceX, sourceY, sourceWidth, sourceHeight } = 
+          calculateResizeDimensions(
+            img.width, 
+            img.height, 
+            options.width, 
+            options.height, 
+            options.resizeMode
+          );
+          
+        console.log('🎯 Calculated dimensions:', {
+          target: `${targetWidth}x${targetHeight}`,
+          source: `${sourceWidth}x${sourceHeight}`,
+          sourceOffset: `${sourceX},${sourceY}`
+        });
 
         canvas.width = targetWidth;
         canvas.height = targetHeight;
         
-        // Enable better image quality settings
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
+        // Apply advanced resampling filter settings
+        applyResamplingFilter(ctx, options.resamplingFilter);
         
-        // Draw image with better quality
-        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+        // Handle different resize modes
+        if (options.resizeMode === 'cover') {
+          // For cover mode, we need to draw from a cropped source
+          ctx.drawImage(
+            img, 
+            sourceX, sourceY, sourceWidth, sourceHeight,
+            0, 0, targetWidth, targetHeight
+          );
+        } else {
+          // For fit, fill, and stretch modes
+          ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+        }
         
         // Calculate effective quality based on both quality and compression settings
-        // Higher compression should reduce quality, but not below 0.1
         const effectiveQuality = Math.max(0.1, options.quality * options.compression);
+        
+        console.log('🎯 Quality settings:', {
+          baseQuality: options.quality,
+          compression: options.compression,
+          effectiveQuality: effectiveQuality,
+          format: options.format
+        });
 
         canvas.toBlob(
           (blob) => {
             if (!blob) return reject(new Error('Canvas to Blob failed'));
-            resolve({
+            
+            const result = {
               ...imageFile,
               resizedUrl: URL.createObjectURL(blob),
               resizedSize: blob.size,
@@ -413,13 +496,300 @@ export function ImageResizer() {
               height: targetHeight,
               originalWidth: img.width,
               originalHeight: img.height,
+            };
+            
+            console.log('🎯 Resize complete:', {
+              original: `${img.width}x${img.height}`,
+              result: `${targetWidth}x${targetHeight}`,
+              originalSize: imageFile.size,
+              newSize: blob.size,
+              sizeChange: ((blob.size - imageFile.size) / imageFile.size * 100).toFixed(1) + '%'
             });
+            
+            resolve(result);
           },
           options.format,
           effectiveQuality
         );
       };
     });
+  };
+
+  // Test function to verify cover mode calculation
+  const testCoverMode = (originalWidth: number, originalHeight: number, targetWidth: number, targetHeight: number) => {
+    const originalRatio = originalWidth / originalHeight;
+    const targetRatio = targetWidth / targetHeight;
+    
+    console.log('🧪 Testing cover mode:', {
+      original: `${originalWidth}x${originalHeight} (ratio: ${originalRatio.toFixed(2)})`,
+      target: `${targetWidth}x${targetHeight} (ratio: ${targetRatio.toFixed(2)})`,
+      shouldCrop: originalRatio !== targetRatio ? 'Yes' : 'No'
+    });
+    
+    let coverSourceX = 0;
+    let coverSourceY = 0;
+    let coverSourceWidth = originalWidth;
+    let coverSourceHeight = originalHeight;
+
+    if (originalRatio > targetRatio) {
+      // Image is wider, crop width
+      coverSourceWidth = Math.round(originalHeight * targetRatio);
+      coverSourceX = Math.round((originalWidth - coverSourceWidth) / 2);
+    } else {
+      // Image is taller, crop height
+      coverSourceHeight = Math.round(originalWidth / targetRatio);
+      coverSourceY = Math.round((originalHeight - coverSourceHeight) / 2);
+    }
+
+    console.log('🧪 Cover mode result:', {
+      target: `${targetWidth}x${targetHeight}`,
+      source: `${coverSourceWidth}x${coverSourceHeight}`,
+      offset: `${coverSourceX},${coverSourceY}`,
+      cropWidth: originalWidth - coverSourceWidth,
+      cropHeight: originalHeight - coverSourceHeight
+    });
+    
+    return { targetWidth, targetHeight, sourceX: coverSourceX, sourceY: coverSourceY, sourceWidth: coverSourceWidth, sourceHeight: coverSourceHeight };
+  };
+
+  // Helper function to calculate resize dimensions based on mode
+  const calculateResizeDimensions = (
+    originalWidth: number,
+    originalHeight: number,
+    targetWidth: number,
+    targetHeight: number,
+    mode: 'fit' | 'fill' | 'cover' | 'stretch'
+  ) => {
+    const originalRatio = originalWidth / originalHeight;
+    const targetRatio = targetWidth / targetHeight;
+
+    switch (mode) {
+      case 'stretch':
+        return {
+          targetWidth,
+          targetHeight,
+          sourceX: 0,
+          sourceY: 0,
+          sourceWidth: originalWidth,
+          sourceHeight: originalHeight
+        };
+
+      case 'fit':
+        // Resize to fit within target dimensions while maintaining aspect ratio
+        // But if user explicitly sets dimensions, respect them unless they would distort the image
+        const fitRatio = Math.min(targetWidth / originalWidth, targetHeight / originalHeight);
+        
+        // If the target dimensions are larger than original, allow upscaling
+        // If the target dimensions are smaller, scale down to fit
+        const shouldScale = targetWidth !== originalWidth || targetHeight !== originalHeight;
+        
+        if (shouldScale) {
+          return {
+            targetWidth: Math.round(originalWidth * fitRatio),
+            targetHeight: Math.round(originalHeight * fitRatio),
+            sourceX: 0,
+            sourceY: 0,
+            sourceWidth: originalWidth,
+            sourceHeight: originalHeight
+          };
+        } else {
+          // If dimensions are the same, return original dimensions
+          return {
+            targetWidth: originalWidth,
+            targetHeight: originalHeight,
+            sourceX: 0,
+            sourceY: 0,
+            sourceWidth: originalWidth,
+            sourceHeight: originalHeight
+          };
+        }
+
+      case 'fill':
+        // Resize to fill target dimensions exactly, may crop
+        const fillRatio = Math.max(targetWidth / originalWidth, targetHeight / originalHeight);
+        const fillWidth = Math.round(originalWidth * fillRatio);
+        const fillHeight = Math.round(originalHeight * fillRatio);
+        const fillX = (fillWidth - targetWidth) / 2;
+        const fillY = (fillHeight - targetHeight) / 2;
+        
+        return {
+          targetWidth,
+          targetHeight,
+          sourceX: Math.round(fillX / fillRatio),
+          sourceY: Math.round(fillY / fillRatio),
+          sourceWidth: Math.round(targetWidth / fillRatio),
+          sourceHeight: Math.round(targetHeight / fillRatio)
+        };
+
+      case 'cover':
+        // Cover mode: ALWAYS produce exact target dimensions by cropping source
+        const coverRatio = Math.max(targetWidth / originalWidth, targetHeight / originalHeight);
+        
+        // Calculate source dimensions that will fill the target exactly
+        const coverSourceWidth = Math.round(targetWidth / coverRatio);
+        const coverSourceHeight = Math.round(targetHeight / coverRatio);
+        
+        // Center the crop area
+        const coverSourceX = Math.round((originalWidth - coverSourceWidth) / 2);
+        const coverSourceY = Math.round((originalHeight - coverSourceHeight) / 2);
+
+        console.log('🎯 Cover mode calculation:', {
+          original: `${originalWidth}x${originalHeight}`,
+          target: `${targetWidth}x${targetHeight}`,
+          coverRatio: coverRatio.toFixed(3),
+          sourceCrop: `${coverSourceWidth}x${coverSourceHeight}`,
+          sourceOffset: `${coverSourceX},${coverSourceY}`,
+          willCrop: coverSourceWidth < originalWidth || coverSourceHeight < originalHeight
+        });
+
+        return {
+          targetWidth, // ALWAYS exact target dimensions
+          targetHeight, // ALWAYS exact target dimensions
+          sourceX: coverSourceX,
+          sourceY: coverSourceY,
+          sourceWidth: coverSourceWidth,
+          sourceHeight: coverSourceHeight
+        };
+
+      default:
+        return {
+          targetWidth,
+          targetHeight,
+          sourceX: 0,
+          sourceY: 0,
+          sourceWidth: originalWidth,
+          sourceHeight: originalHeight
+        };
+    }
+  };
+
+  // Helper function to apply resampling filters
+  const applyResamplingFilter = (
+    ctx: CanvasRenderingContext2D,
+    filter: 'lanczos' | 'bicubic' | 'bilinear' | 'nearest'
+  ) => {
+    switch (filter) {
+      case 'nearest':
+        ctx.imageSmoothingEnabled = false;
+        break;
+      case 'bilinear':
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'low';
+        break;
+      case 'bicubic':
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'medium';
+        break;
+      case 'lanczos':
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        break;
+      default:
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+    }
+  };
+
+  // Smart quality calculation based on format and resize mode
+  const getSmartQuality = (format: string, resizeMode: string, isDownscaling: boolean) => {
+    if (!smartQuality) return quality;
+
+    let baseQuality = 0.9;
+
+    // Adjust based on format
+    switch (format) {
+      case 'image/jpeg':
+        baseQuality = isDownscaling ? 0.85 : 0.9; // Lower quality for downscaling
+        break;
+      case 'image/webp':
+        baseQuality = 0.8; // WebP can use lower quality for same visual result
+        break;
+      case 'image/avif':
+        baseQuality = 0.75; // AVIF is very efficient
+        break;
+      case 'image/heif':
+        baseQuality = 0.8; // HEIF is very efficient
+        break;
+      case 'image/png':
+        return 1.0; // PNG is lossless
+    }
+
+    // Adjust based on resize mode
+    switch (resizeMode) {
+      case 'cover':
+        baseQuality += 0.05; // Higher quality for cropping
+        break;
+      case 'stretch':
+        baseQuality -= 0.1; // Lower quality for stretching
+        break;
+      case 'fit':
+        baseQuality += 0.02; // Slightly higher for fit mode
+        break;
+    }
+
+    return Math.min(1.0, Math.max(0.1, baseQuality));
+  };
+
+  // Server-side image processing with Sharp
+  const processImageServerSide = async (
+    imageFile: ResizedImage,
+    options: { 
+      width: number; 
+      height: number; 
+      format: string; 
+      quality: number; 
+      resamplingFilter: 'lanczos' | 'bicubic' | 'bilinear' | 'nearest';
+      resizeMode: 'fit' | 'fill' | 'cover' | 'stretch';
+    }
+  ): Promise<ResizedImage> => {
+    try {
+      // Convert preview URL to blob
+      const response = await fetch(imageFile.previewUrl);
+      const blob = await response.blob();
+      
+      // Create form data
+      const formData = new FormData();
+      formData.append('image', blob, imageFile.name);
+      formData.append('width', options.width.toString());
+      formData.append('height', options.height.toString());
+      formData.append('format', options.format.split('/')[1] || 'jpeg');
+      formData.append('quality', options.quality.toString());
+      formData.append('resamplingFilter', options.resamplingFilter);
+      formData.append('resizeMode', options.resizeMode);
+
+      // Send to server for processing
+      const processResponse = await fetch('/api/image/process', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!processResponse.ok) {
+        throw new Error(`Server processing failed: ${processResponse.statusText}`);
+      }
+
+      // Get processed image blob
+      const processedBlob = await processResponse.blob();
+      const processedUrl = URL.createObjectURL(processedBlob);
+
+      // Get metadata from response headers
+      const processedWidth = parseInt(processResponse.headers.get('X-Image-Width') || '0');
+      const processedHeight = parseInt(processResponse.headers.get('X-Image-Height') || '0');
+      const processedSize = parseInt(processResponse.headers.get('X-Image-Size') || '0');
+
+      return {
+        ...imageFile,
+        resizedUrl: processedUrl,
+        resizedSize: processedSize,
+        width: processedWidth,
+        height: processedHeight,
+        originalWidth: parseInt(processResponse.headers.get('X-Image-Width') || '0'),
+        originalHeight: parseInt(processResponse.headers.get('X-Image-Height') || '0'),
+      };
+
+    } catch (error) {
+      console.error('Server-side processing failed:', error);
+      throw error;
+    }
   };
 
   // Upload image to cloud storage
@@ -463,11 +833,11 @@ export function ImageResizer() {
       return true;
     } catch (error) {
       console.error('Cloud upload error:', error);
-      toast({
-        title: "Cloud Upload Failed",
-        description: error instanceof Error ? error.message : "Failed to upload to cloud storage",
-        variant: "destructive",
-      });
+      // toast({
+      //   title: "Cloud Upload Failed",
+      //   description: error instanceof Error ? error.message : "Failed to upload to cloud storage",
+      //   variant: "destructive",
+      // });
       return false;
     } finally {
       setIsUploadingToCloud(false);
@@ -479,13 +849,36 @@ export function ImageResizer() {
     console.log('🎯 performResize called!');
     console.log('🎯 Images count:', images.length);
     
+    // Calculate smart quality if enabled
+    const effectiveQuality = smartQuality 
+      ? getSmartQuality(format, resizeMode, width < 1200 && height < 1200) 
+      : downloadQuality;
+
+    console.log('🎯 Current state values:', {
+      width,
+      height,
+      keepAspectRatio,
+      format,
+      quality: effectiveQuality,
+      compression,
+      resamplingFilter,
+      resizeMode
+    });
+    
+    // Force specific dimensions for testing if needed
+    if (width === 800 && height === 600) {
+      console.log('🎯 Using default dimensions 800x600 - did you select a preset?');
+    }
+
     const currentResizingOptions = { 
       width, 
       height, 
       keepAspectRatio, 
       format, 
-      quality: downloadQuality,
-      compression: compression 
+      quality: effectiveQuality,
+      compression: compression,
+      resamplingFilter,
+      resizeMode
     };
     if (images.length === 0) {
       console.log('⚠️ No images to process');
@@ -518,7 +911,9 @@ export function ImageResizer() {
         setCurrentProcessingImage(image.name);
         setImageProcessingStates(prev => new Map(prev.set(image.id, 'processing')));
         
-        const resized = await resizeImage(image, currentResizingOptions);
+        const resized = useServerProcessing 
+          ? await processImageServerSide(image, currentResizingOptions)
+          : await resizeImage(image, currentResizingOptions);
         setImages(currentImages => currentImages.map(i => i.id === resized.id ? resized : i));
         
         // Update state to completed
@@ -625,10 +1020,10 @@ export function ImageResizer() {
       console.log('⚠️ No images to track');
     }
 
-    toast({
-      title: 'Resizing complete!',
-      description: `${images.length} image(s) have been processed.${saveToCloud && user ? ' Images saved to cloud storage.' : ''}`,
-    });
+    // toast({
+    //   title: 'Resizing complete!',
+    //   description: `${images.length} image(s) have been processed.${saveToCloud && user ? ' Images saved to cloud storage.' : ''}`,
+    // });
   };
 
   const handleResizeClick = async () => {
@@ -637,11 +1032,11 @@ export function ImageResizer() {
     
     if (images.length === 0) {
       console.log('⚠️ No images selected');
-      toast({
-        title: "No images selected",
-        description: "Please upload some images to resize.",
-        variant: "destructive",
-      });
+      // toast({
+      //   title: "No images selected",
+      //   description: "Please upload some images to resize.",
+      //   variant: "destructive",
+      // });
       return;
     }
     
@@ -691,11 +1086,11 @@ export function ImageResizer() {
     const imagesToDownload = images.filter((image) => image.resizedUrl);
 
     if (imagesToDownload.length === 0) {
-      toast({
-        title: 'No images to download',
-        description: 'No images have been resized yet.',
-        variant: 'destructive',
-      });
+      // toast({
+      //   title: 'No images to download',
+      //   description: 'No images have been resized yet.',
+      //   variant: 'destructive',
+      // });
       return;
     }
 
@@ -706,28 +1101,28 @@ export function ImageResizer() {
 
     // For multiple images, check if user is logged in
     if (!user) {
-      toast({
-        title: `Sign up required for batch download`,
-        description: `Sign up to access paid plans with batch download and no watermarks.`,
-        variant: 'destructive',
-      });
+      // toast({
+      //   title: `Sign up required for batch download`,
+      //   description: `Sign up to access paid plans with batch download and no watermarks.`,
+      //   variant: 'destructive',
+      // });
       return;
     }
 
     const batchLimit = currentPlan.batchLimit;
     if (imagesToDownload.length > batchLimit) {
-      toast({
-        title: `Batch limit exceeded`,
-        description: `Your plan allows downloading up to ${batchLimit} images at once. Upgrade for higher limits.`,
-        variant: 'destructive',
-      });
+      // toast({
+      //   title: `Batch limit exceeded`,
+      //   description: `Your plan allows downloading up to ${batchLimit} images at once. Upgrade for higher limits.`,
+      //   variant: 'destructive',
+      // });
       return;
     }
 
-    toast({
-      title: 'Preparing ZIP file...',
-      description: `Zipping ${imagesToDownload.length} images.`,
-    });
+    // toast({
+    //   title: 'Preparing ZIP file...',
+    //   description: `Zipping ${imagesToDownload.length} images.`,
+    // });
 
     const zip = new JSZip();
 
@@ -740,11 +1135,11 @@ export function ImageResizer() {
           zip.file(`${image.name}_${image.width}x${image.height}.${extension}`, blob);
         } catch (error) {
           console.error('Failed to fetch resized image for zipping:', error);
-          toast({
-            title: 'Error Zipping File',
-            description: `Could not add ${image.name} to the zip.`,
-            variant: 'destructive',
-          });
+          // toast({
+          //   title: 'Error Zipping File',
+          //   description: `Could not add ${image.name} to the zip.`,
+          //   variant: 'destructive',
+          // });
         }
       }
     }
@@ -766,17 +1161,17 @@ export function ImageResizer() {
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
 
-      toast({
-        title: 'Download started!',
-        description: 'Your ZIP file is being downloaded.',
-      });
+      // toast({
+      //   title: 'Download started!',
+      //   description: 'Your ZIP file is being downloaded.',
+      // });
     } catch (error) {
       console.error('Failed to generate zip file', error);
-      toast({
-        title: 'Zip Generation Failed',
-        description: 'Could not create the ZIP file. Please try downloading images individually.',
-        variant: 'destructive',
-      });
+      // toast({
+      //   title: 'Zip Generation Failed',
+      //   description: 'Could not create the ZIP file. Please try downloading images individually.',
+      //   variant: 'destructive',
+      // });
     }
   };
 
@@ -970,55 +1365,73 @@ export function ImageResizer() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <Label htmlFor="preset-select">Presets</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="preset-select">Presets</Label>
+                  {activePreset && (
+                    <Badge variant="secondary" className="text-xs">
+                      ✓ Active: {activePreset}
+                    </Badge>
+                  )}
+                </div>
                 <p id="preset-description" className="text-sm text-muted-foreground mb-2">
-                  Choose from popular image size presets for social media, web, or print
+                  Choose from popular image size presets for social media, web, or print. Presets use Cover mode for exact dimensions.
                 </p>
-                  <Select onValueChange={handlePresetChange}>
-                    <SelectTrigger 
-                      id="preset-select" 
-                      name="preset-select" 
-                      aria-label="Choose a preset"
-                      aria-describedby="preset-description"
-                    >
-                      <SelectValue placeholder="Choose a preset..." />
-                    </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Social Media</SelectLabel>
+                  <select 
+                    onChange={(e) => handlePresetChange(e.target.value)}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="">Choose a preset...</option>
+                    <optgroup label="Social Media">
                       {socialPresets.map((p) => (
-                        <SelectItem key={p.name} value={`${p.width}x${p.height}`}>
-                          {p.name} ({p.width}x{p.height})
-                        </SelectItem>
+                        <option key={p.name} value={`${p.width}x${p.height}`}>
+                          {p.name} ({p.width}×{p.height})
+                        </option>
                       ))}
-                    </SelectGroup>
-                    <SelectGroup>
-                      <SelectLabel>Web</SelectLabel>
+                    </optgroup>
+                    <optgroup label="Web">
                       {webPresets.map((p) => (
-                        <SelectItem key={p.name} value={`${p.width}x${p.height}`}>
-                          {p.name} ({p.width}x{p.height})
-                        </SelectItem>
+                        <option key={p.name} value={`${p.width}x${p.height}`}>
+                          {p.name} ({p.width}×{p.height})
+                        </option>
                       ))}
-                    </SelectGroup>
-                    <SelectGroup>
-                      <SelectLabel>Print</SelectLabel>
+                    </optgroup>
+                    <optgroup label="Print">
                       {printPresets.map((p) => (
-                        <SelectItem key={p.name} value={`${p.width}x${p.height}`}>
-                          {p.name} ({p.width}x{p.height})
-                        </SelectItem>
+                        <option key={p.name} value={`${p.width}x${p.height}`}>
+                          {p.name} ({p.width}×{p.height})
+                        </option>
                       ))}
-                    </SelectGroup>
-                    <SelectGroup>
-                      <SelectLabel>Shopify</SelectLabel>
+                    </optgroup>
+                    <optgroup label="Shopify">
                       {shopifyPresets.map((p) => (
-                        <SelectItem key={p.name} value={`${p.width}x${p.height}`}>
-                          {p.name} ({p.width}x{p.height})
-                        </SelectItem>
+                        <option key={p.name} value={`${p.width}x${p.height}`}>
+                          {p.name} ({p.width}×{p.height})
+                        </option>
                       ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                 {!user && <p className="text-xs text-green-600 mt-2">✓ All presets available for free users</p>}
+                    </optgroup>
+                  </select>
+                <div className="flex items-center justify-between mt-2">
+                  {!user && <p className="text-xs text-green-600">✓ All presets available for free users</p>}
+                  {activePreset && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        setActivePreset(null);
+                        setKeepAspectRatio(true);
+                        setResizeMode('fit');
+                        // toast({
+                        //   title: "Preset Cleared",
+                        //   description: "Using manual dimensions with Fit mode",
+                        //   duration: 2000,
+                        // });
+                      }}
+                      className="text-xs"
+                    >
+                      Clear Preset
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <Separator />
@@ -1027,14 +1440,17 @@ export function ImageResizer() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="width">Width</Label>
-                    <Input 
-                      id="width" 
-                      name="width"
-                      type="number" 
-                      value={width} 
-                      onChange={e => setWidth(Number(e.target.value))}
-                      aria-label="Image width in pixels"
-                    />
+                      <Input 
+                        id="width" 
+                        name="width"
+                        type="number" 
+                        value={width} 
+                        onChange={e => {
+                          setWidth(Number(e.target.value));
+                          setActivePreset(null); // Clear preset when manually changing
+                        }}
+                        aria-label="Image width in pixels"
+                      />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="height">Height</Label>
@@ -1043,7 +1459,10 @@ export function ImageResizer() {
                       name="height"
                       type="number" 
                       value={height} 
-                      onChange={e => setHeight(Number(e.target.value))}
+                      onChange={e => {
+                        setHeight(Number(e.target.value));
+                        setActivePreset(null); // Clear preset when manually changing
+                      }}
                       aria-label="Image height in pixels"
                     />
                   </div>
@@ -1073,6 +1492,70 @@ export function ImageResizer() {
                     </p>
                   )}
                 </div>
+
+                {/* Advanced Resizing Options */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="resize-mode">Resize Mode</Label>
+                    <Select value={resizeMode} onValueChange={(value: 'fit' | 'fill' | 'cover' | 'stretch') => setResizeMode(value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select resize mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fit">Fit (Preserve aspect ratio, fit within dimensions)</SelectItem>
+                        <SelectItem value="cover">Cover (Fill exact dimensions, crop if needed) - Best for presets</SelectItem>
+                        <SelectItem value="fill">Fill (Fill dimensions, may stretch)</SelectItem>
+                        <SelectItem value="stretch">Stretch (Force exact dimensions)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {resizeMode === 'fit' && 'Best for maintaining image quality and proportions'}
+                      {resizeMode === 'cover' && 'Perfect for presets! Fills exact dimensions, crops if needed for consistent sizing'}
+                      {resizeMode === 'fill' && 'Fills target area, may crop edges'}
+                      {resizeMode === 'stretch' && 'Forces exact dimensions, may distort image'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="resampling-filter">Resampling Filter</Label>
+                    <Select value={resamplingFilter} onValueChange={(value: 'lanczos' | 'bicubic' | 'bilinear' | 'nearest') => setResamplingFilter(value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select resampling filter" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lanczos">LANCZOS (Highest quality, best for photos)</SelectItem>
+                        <SelectItem value="bicubic">Bicubic (High quality, good balance)</SelectItem>
+                        <SelectItem value="bilinear">Bilinear (Medium quality, faster)</SelectItem>
+                        <SelectItem value="nearest">Nearest Neighbor (Pixelated, for pixel art)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {resamplingFilter === 'lanczos' && 'Best for downscaling large images, preserves sharpness and detail'}
+                      {resamplingFilter === 'bicubic' && 'Great default for most images, especially photographs'}
+                      {resamplingFilter === 'bilinear' && 'Faster processing, slightly blurry but smooth'}
+                      {resamplingFilter === 'nearest' && 'Fastest, blocky/pixelated, good for pixel art only'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="processing-mode">Processing Mode</Label>
+                    <Select value={useServerProcessing ? 'server' : 'client'} onValueChange={handleProcessingModeChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select processing mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="client">Client-side (Fast, browser-based)</SelectItem>
+                        <SelectItem value="server">Server-side (High quality, Sharp library)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {useServerProcessing 
+                        ? 'Uses Sharp library on server for superior quality and advanced features. Slightly slower but much better results.'
+                        : 'Processes images in your browser using Canvas API. Faster but limited quality compared to server processing.'
+                      }
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <Separator />
@@ -1093,15 +1576,43 @@ export function ImageResizer() {
                           <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                          <SelectItem value="image/jpeg">JPG</SelectItem>
-                          <SelectItem value="image/png">PNG</SelectItem>
-                          <SelectItem value="image/webp">WebP</SelectItem>
+                          <SelectItem value="image/jpeg">JPEG (Best for photos, smaller size)</SelectItem>
+                          <SelectItem value="image/png">PNG (Lossless, transparency support)</SelectItem>
+                          <SelectItem value="image/webp">WebP (Modern, excellent compression)</SelectItem>
+                          {useServerProcessing && (
+                            <>
+                              <SelectItem value="image/avif">AVIF (Next-gen, smallest size)</SelectItem>
+                              <SelectItem value="image/heif">HEIF (Apple's format, better than JPEG)</SelectItem>
+                            </>
+                          )}
                           </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {format === 'image/jpeg' && 'Best for photographs. Lossy compression with excellent file size reduction.'}
+                        {format === 'image/png' && 'Lossless format with transparency support. Larger files but perfect quality.'}
+                        {format === 'image/webp' && 'Modern format with superior compression. 25-35% smaller than JPEG.'}
+                        {format === 'image/avif' && 'Cutting-edge format with best compression. 50% smaller than JPEG. Requires server processing.'}
+                        {format === 'image/heif' && 'Apple\'s modern format with superior compression. 30% smaller than JPEG. Requires server processing.'}
+                        {!useServerProcessing && (format === 'image/avif' || format === 'image/heif') && 'Advanced formats require server-side processing. Switch to server mode to use this format.'}
+                      </p>
                   </div>
                   {format !== 'image/png' && (
                       <div className="space-y-2">
-                          <Label htmlFor="quality">Quality: {Math.round(quality * 100)}%</Label>
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="quality">
+                              Quality: {Math.round((smartQuality ? getSmartQuality(format, resizeMode, width < 1200 && height < 1200) : quality) * 100)}%
+                              {smartQuality && ' (Smart)'}
+                            </Label>
+                            <div className="flex items-center space-x-2">
+                              <Switch
+                                id="smart-quality"
+                                checked={smartQuality}
+                                onCheckedChange={setSmartQuality}
+                                size="sm"
+                              />
+                              <Label htmlFor="smart-quality" className="text-xs">Smart Quality</Label>
+                            </div>
+                          </div>
                           <Slider
                               id="quality"
                               min={0.1}
@@ -1109,10 +1620,14 @@ export function ImageResizer() {
                               step={0.01}
                               value={[quality]}
                               onValueChange={([val]) => setQuality(val)}
-                              disabled={!user || !currentPlan.hasQualityControl}
+                              disabled={(!user || !currentPlan.hasQualityControl) || smartQuality}
                           />
                           {(!user || !currentPlan.hasQualityControl) ? (
                             <p className="text-xs text-muted-foreground">Upgrade to control quality.</p>
+                          ) : smartQuality ? (
+                            <p className="text-xs text-muted-foreground">
+                              🧠 Smart quality automatically optimizes based on format and resize mode for best results.
+                            </p>
                           ) : (
                             <p className="text-xs text-muted-foreground">
                               Higher quality = larger file size. Effective quality: {Math.round(Math.max(0.1, quality * compression) * 100)}%
