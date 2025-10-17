@@ -50,6 +50,24 @@ import { cn } from "@/lib/utils";
 import { Badge } from "./ui/badge";
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { 
+  trackImageProcessing, 
+  trackButtonClick, 
+  trackPresetSelection, 
+  trackFileUpload, 
+  trackDownload, 
+  trackConversion,
+  trackError,
+  trackToolUsage,
+  initializeGA4Tracking,
+  trackUserJourney,
+  trackConversionIntent,
+  trackFeatureAdoption,
+  trackEngagementMetrics,
+  trackPerformanceMetrics,
+  type ImageProcessingEvent,
+  type ConversionEvent
+} from '@/lib/ga4-tracking';
 // import { NativeAd } from './ads/NativeAd'; // Disabled
 // import { AdWrapper } from './ads/AdWrapper'; // Disabled
 // import { ModalAd } from './ads/ModalAd'; // Disabled
@@ -178,6 +196,14 @@ export function ImageResizer() {
     }
   }, [user, authLoading]);
 
+  // Initialize GA4 tracking on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      initializeGA4Tracking();
+      trackToolUsage('image_resizer', user ? 'registered' : 'anonymous');
+    }
+  }, [user]);
+
   useEffect(() => {
     if (showResultsModal && images.length > 0 && !isResizing && resizeProgress === 0) {
       performResize();
@@ -302,15 +328,37 @@ export function ImageResizer() {
 
   const processFiles = (files: FileList) => {
     const filesArray = Array.from(files);
-    const newImages: ResizedImage[] = filesArray
-      .filter((file) => file.type.startsWith("image/"))
-      .map((file) => ({
-        id: `${file.name}-${file.lastModified}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        originalFile: file,
-        previewUrl: URL.createObjectURL(file),
-        originalSize: file.size,
-        name: file.name.substring(0, file.name.lastIndexOf('.')),
-      }));
+    const imageFiles = filesArray.filter((file) => file.type.startsWith("image/"));
+    
+    // Track file upload in GA4
+    const totalSize = imageFiles.reduce((sum, file) => sum + file.size, 0);
+    const userType = user ? 'registered' : 'anonymous';
+    
+    trackFileUpload(imageFiles.length, totalSize, userType);
+    
+    // Track user journey step - file upload
+    trackUserJourney('file_upload', 1, 5, userType, {
+      file_count: imageFiles.length,
+      total_size: totalSize,
+      upload_method: 'drag_drop_or_browse'
+    });
+    
+    // Track conversion intent - upload started
+    trackConversionIntent('upload_started', userType, {
+      file_count: imageFiles.length,
+      file_types: [...new Set(imageFiles.map(f => f.type.split('/')[1]))].join(',')
+    });
+    
+    // Track feature adoption
+    trackFeatureAdoption('file_upload', 'discovered', userType, imageFiles.length);
+    
+    const newImages: ResizedImage[] = imageFiles.map((file) => ({
+      id: `${file.name}-${file.lastModified}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      originalFile: file,
+      previewUrl: URL.createObjectURL(file),
+      originalSize: file.size,
+      name: file.name.substring(0, file.name.lastIndexOf('.')),
+    }));
 
     setImages([...images, ...newImages]);
     
@@ -394,6 +442,10 @@ export function ImageResizer() {
     
     // Track active preset
     setActivePreset(value);
+    
+    // Track preset selection in GA4
+    const presetName = `${w}x${h}`;
+    trackPresetSelection(presetName, value, user ? 'registered' : 'anonymous');
     
     console.log('🎯 Preset applied - EXACT dimensions:', w, 'x', h, 'mode: cover', 'aspectRatio: OFF');
     
@@ -974,14 +1026,62 @@ export function ImageResizer() {
       console.log('🔍 User:', user ? `ID ${user.id}` : 'Guest');
       console.log('🔍 Processing time:', Date.now() - (processingStartTime || Date.now()));
       
+      // Track in GA4
+      const processingTime = Date.now() - (processingStartTime || Date.now());
+      const totalFileSize = images.reduce((total, img) => total + (img.originalSize || 0), 0);
+      
+      const ga4EventData: ImageProcessingEvent = {
+        user_type: user ? 'registered' : 'anonymous',
+        tool_used: 'image_resizer',
+        processing_mode: useServerProcessing ? 'server' : 'client',
+        file_count: images.length,
+        total_file_size: totalFileSize,
+        processing_time_ms: processingTime,
+        output_format: format,
+        dimensions: `${width}x${height}`,
+        quality_setting: quality,
+        compression_setting: compression,
+        resize_mode: resizeMode,
+        resampling_filter: resamplingFilter
+      };
+      
+      trackImageProcessing(ga4EventData);
+      
+      // Track performance metrics
+      trackPerformanceMetrics('image_processing', processingTime, {
+        file_count: images.length,
+        processing_mode: useServerProcessing ? 'server' : 'client',
+        user_type: user ? 'registered' : 'anonymous'
+      });
+      
+      // Track user journey completion
+      trackUserJourney('processing_completed', 3, 5, user ? 'registered' : 'anonymous', {
+        success_count: successfulImages.length,
+        total_count: images.length,
+        processing_time: processingTime,
+        average_time_per_image: Math.round(processingTime / images.length)
+      });
+      
+      // Track feature adoption based on usage
+      const adoptionLevel = images.length > 5 ? 'power_user' : images.length > 1 ? 'used_regularly' : 'tried';
+      trackFeatureAdoption('image_processing', adoptionLevel, user ? 'registered' : 'anonymous', images.length);
+      
+      // Track as conversion
+      const conversionEvent: ConversionEvent = {
+        user_type: user ? 'registered' : 'anonymous',
+        conversion_type: 'image_processed',
+        value: images.length
+      };
+      trackConversion(conversionEvent);
+      
       try {
         const trackingData = {
           user_id: user?.id || null,
           guest_id: user ? null : (localStorage.getItem('guest_id') || `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`),
           action: 'image_resize',
           file_count: images.length,
-          processing_time_ms: Date.now() - (processingStartTime || Date.now()),
-          file_size_bytes: images.reduce((total, img) => total + (img.file?.size || 0), 0)
+          processing_time_ms: processingTime,
+          file_size_bytes: totalFileSize
         };
 
         console.log('🔍 Tracking data:', trackingData);
@@ -1015,6 +1115,13 @@ export function ImageResizer() {
         } else {
           const errorText = await response.text();
           console.error('❌ Tracking failed:', response.status, errorText);
+          
+          // Track API error in GA4
+          trackError('api_error', `Tracking API failed: ${response.status}`, user ? 'registered' : 'anonymous', {
+            error_code: response.status,
+            error_message: errorText,
+            endpoint: '/api/usage/track-processing'
+          });
         }
         
         // Note: User data refresh removed to prevent automatic logout
@@ -1022,6 +1129,12 @@ export function ImageResizer() {
         // refreshed naturally on the next page load or manual refresh
       } catch (error) {
         console.error('❌ Failed to track image processing:', error);
+        
+        // Track error in GA4
+        trackError('tracking_error', error instanceof Error ? error.message : 'Unknown error', user ? 'registered' : 'anonymous', {
+          error_type: 'image_processing_tracking',
+          file_count: images.length
+        });
       }
     } else {
       console.log('⚠️ No images to track');
@@ -1037,8 +1150,40 @@ export function ImageResizer() {
     console.log('🚀 Resize button clicked!');
     console.log('🚀 Images count:', images.length);
     
+    const userType = user ? 'registered' : 'anonymous';
+    
+    // Track button click in GA4
+    trackButtonClick('resize_images', 'main_interface', userType, {
+      image_count: images.length,
+      dimensions: `${width}x${height}`,
+      format: format,
+      processing_mode: useServerProcessing ? 'server' : 'client'
+    });
+    
+    // Track user journey step - processing initiated
+    trackUserJourney('processing_initiated', 2, 5, userType, {
+      image_count: images.length,
+      dimensions: `${width}x${height}`,
+      format: format,
+      preset_used: activePreset || 'custom'
+    });
+    
+    // Track conversion intent
+    trackConversionIntent('processing_initiated', userType, {
+      image_count: images.length,
+      settings: {
+        dimensions: `${width}x${height}`,
+        format: format,
+        processing_mode: useServerProcessing ? 'server' : 'client',
+        quality: quality,
+        compression: compression
+      }
+    });
+    
     if (images.length === 0) {
       console.log('⚠️ No images selected');
+      // Track failed conversion attempt
+      trackError('no_images_selected', 'User clicked resize without selecting images', userType);
       // toast({
       //   title: "No images selected",
       //   description: "Please upload some images to resize.",
@@ -1053,6 +1198,11 @@ export function ImageResizer() {
     const hasLimit = await checkUsageLimit(unresizedCount);
     if (hasLimit) {
       console.log('⚠️ Usage limit reached');
+      // Track limit reached event
+      trackError('usage_limit_reached', 'User hit daily usage limit', userType, {
+        limit_type: 'daily',
+        current_usage: user ? user.dailyUsageCount : anonymousUsage
+      });
       return;
     }
 
@@ -1079,6 +1229,29 @@ export function ImageResizer() {
       console.error('Download not available - not in browser environment');
       return;
     }
+    
+    const userType = user ? 'registered' : 'anonymous';
+    
+    // Track download in GA4
+    trackDownload('single', 1, userType, downloadQuality);
+    
+    // Track user journey step - download
+    trackUserJourney('download_completed', 4, 5, userType, {
+      download_type: 'single',
+      file_format: format,
+      quality: downloadQuality,
+      file_size: image.resizedSize || image.originalSize
+    });
+    
+    // Track conversion intent
+    trackConversionIntent('download_clicked', userType, {
+      download_type: 'single',
+      file_format: format,
+      quality: downloadQuality
+    });
+    
+    // Track feature adoption
+    trackFeatureAdoption('download', 'tried', userType);
     
     const link = document.createElement('a');
     link.href = image.resizedUrl;
@@ -1160,6 +1333,29 @@ export function ImageResizer() {
         return;
       }
       
+      const userType = user ? 'registered' : 'anonymous';
+      
+      // Track batch download in GA4
+      trackDownload('zip', imagesToDownload.length, userType, downloadQuality);
+      
+      // Track user journey completion - final step
+      trackUserJourney('batch_download_completed', 5, 5, userType, {
+        download_type: 'batch_zip',
+        file_count: imagesToDownload.length,
+        total_size: imagesToDownload.reduce((sum, img) => sum + (img.resizedSize || 0), 0),
+        quality: downloadQuality
+      });
+      
+      // Track conversion intent
+      trackConversionIntent('download_clicked', userType, {
+        download_type: 'batch_zip',
+        file_count: imagesToDownload.length,
+        quality: downloadQuality
+      });
+      
+      // Track feature adoption - batch download is advanced usage
+      trackFeatureAdoption('batch_download', 'used_regularly', userType, imagesToDownload.length);
+      
       const link = document.createElement('a');
       link.href = URL.createObjectURL(content);
       link.download = 'resized_images.zip';
@@ -1174,6 +1370,13 @@ export function ImageResizer() {
       // });
     } catch (error) {
       console.error('Failed to generate zip file', error);
+      
+      // Track error in GA4
+      trackError('download_error', error instanceof Error ? error.message : 'ZIP generation failed', user ? 'registered' : 'anonymous', {
+        error_type: 'zip_generation',
+        file_count: imagesToDownload.length
+      });
+      
       // toast({
       //   title: 'Zip Generation Failed',
       //   description: 'Could not create the ZIP file. Please try downloading images individually.',
@@ -1386,6 +1589,7 @@ export function ImageResizer() {
                   <select 
                     onChange={(e) => handlePresetChange(e.target.value)}
                     className="w-full p-2 border rounded-md"
+                    data-ga-presets="true"
                   >
                     <option value="">Choose a preset...</option>
                     <optgroup label="Social Media">
@@ -1739,7 +1943,15 @@ export function ImageResizer() {
                     </p>
                     <div className="flex flex-col gap-2 justify-center max-w-full">
                       <Link href="/signup" className="w-full">
-                        <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                        <Button 
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                          data-ga={JSON.stringify({
+                            event_name: 'signup_click',
+                            event_category: 'conversion',
+                            event_label: 'create_account_button',
+                            button_location: 'image_resizer_registration_prompt'
+                          })}
+                        >
                           <Sparkles className="mr-2 h-4 w-4" />
                           Create Free Account
                         </Button>
@@ -1756,7 +1968,18 @@ export function ImageResizer() {
                 </div>
               )}
 
-              <Button onClick={handleResizeClick} disabled={images.length === 0} className="w-full" size={isMobile ? "lg" : "default"}>
+              <Button 
+                onClick={handleResizeClick} 
+                disabled={images.length === 0} 
+                className="w-full" 
+                size={isMobile ? "lg" : "default"}
+                data-ga={JSON.stringify({
+                  event_name: 'resize_button_click',
+                  event_category: 'image_processing',
+                  event_label: 'resize_images_main_button',
+                  button_location: 'main_interface'
+                })}
+              >
                   <Sparkles className="mr-2 h-4 w-4" />Resize Images
               </Button>
             </CardContent>

@@ -48,15 +48,18 @@ console.log('Database config:', {
 
 const pool = new Pool({
   ...dbConfig,
-  // Connection pool settings optimized for Render PostgreSQL
-  max: 5, // Reduced maximum connections for Render
-  min: 0, // No minimum connections to avoid idle connections
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 5000, // Reduced timeout for faster failure detection
-  acquireTimeoutMillis: 5000, // Reduced timeout for faster failure detection
-  maxUses: 1000, // Reduced max uses to refresh connections more often
-  // Connection options optimized for cloud databases
-  keepAlive: false, // Disable keepAlive for cloud databases
+  // Connection pool settings optimized for Render PostgreSQL free tier
+  max: 3, // Very low maximum connections for free tier
+  min: 0, // No minimum connections
+  idleTimeoutMillis: 10000, // Close idle clients after 10 seconds
+  connectionTimeoutMillis: 3000, // Very short timeout for Render
+  acquireTimeoutMillis: 3000, // Very short timeout for Render
+  maxUses: 100, // Refresh connections frequently
+  // Connection options optimized for Render
+  keepAlive: false,
+  // Additional Render-specific settings
+  statement_timeout: 3000,
+  query_timeout: 3000,
 });
 
 // Add error handling for pool
@@ -329,10 +332,11 @@ export async function query(text: string, params?: any[], retries: number = 2): 
   throw lastError || new Error('Database query failed after all retries');
 }
 
-// Database health check function
+// Database health check function optimized for Render
 export async function checkDatabaseHealth(): Promise<{ healthy: boolean; error?: string }> {
   try {
-    const result = await query('SELECT 1 as health_check');
+    // Use a simple query that Render can handle
+    const result = await query('SELECT NOW() as current_time', [], 1); // Only 1 retry for health check
     return { healthy: true };
   } catch (error) {
     console.error('Database health check failed:', error);

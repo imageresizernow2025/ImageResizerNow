@@ -12,6 +12,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { trackConversion, trackButtonClick } from '@/lib/ga4-tracking';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -31,6 +32,13 @@ export default function SignupPage() {
       const result = await signup(email, password, firstName, lastName);
       
       if (result.success) {
+        // Track successful signup conversion in GA4
+        trackConversion({
+          user_type: 'anonymous', // User was anonymous before signup
+          conversion_type: 'signup',
+          value: 1
+        });
+        
         toast({
           title: "Welcome to ImageResizerNow!",
           description: "Your account has been created successfully.",
@@ -125,7 +133,17 @@ export default function SignupPage() {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading}
+                data-ga={JSON.stringify({
+                  event_name: 'signup_form_submit',
+                  event_category: 'conversion',
+                  event_label: 'create_account_form',
+                  button_location: 'signup_page'
+                })}
+              >
                 {isLoading ? "Creating Account..." : "Create Account"}
               </Button>
               <p className="text-sm text-center text-muted-foreground">

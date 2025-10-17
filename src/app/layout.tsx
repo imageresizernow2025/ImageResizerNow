@@ -91,6 +91,27 @@ export default function RootLayout({
             ]
           }) }}
         />
+        {/* Google Analytics 4 */}
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-W7T6RWFLE9"></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-W7T6RWFLE9', {
+                page_title: document.title,
+                page_location: window.location.href,
+                custom_map: {
+                  'custom_parameter_1': 'user_type',
+                  'custom_parameter_2': 'tool_used',
+                  'custom_parameter_3': 'processing_mode'
+                }
+              });
+            `,
+          }}
+        />
+        
         {/* Google AdSense */}
         <meta name="google-adsense-account" content="ca-pub-1125405879614984" />
         <script 

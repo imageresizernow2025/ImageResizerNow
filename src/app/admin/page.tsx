@@ -4,11 +4,15 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Users, TrendingUp, BarChart3, Eye, Download, Clock, Globe, RefreshCw, LogOut } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Users, TrendingUp, BarChart3, Eye, Download, Clock, Globe, RefreshCw, LogOut, Activity, Target, Database } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { AdminRoute } from '@/components/AdminRoute';
+import { AnalyticsDashboard } from '@/components/admin/AnalyticsDashboard';
+import { DataExport } from '@/components/admin/DataExport';
+import { AdminErrorBoundary } from '@/components/admin/AdminErrorBoundary';
 
 interface AnalyticsData {
   totalUsers: number;
@@ -53,40 +57,67 @@ interface AnalyticsData {
 function AdminPageContent() {
   const { user, isLoading } = useAuth();
   const { adminUser, adminLogout } = useAdminAuth();
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const defaultAnalyticsData: AnalyticsData = {
+    totalUsers: 0,
+    guestUsers: 0,
+    registeredUsers: 0,
+    totalSessions: 0,
+    mostUsedFeatures: [],
+    trafficSources: [],
+    dailyActiveUsers: 0,
+    weeklyActiveUsers: 0,
+    monthlyActiveUsers: 0,
+    totalImagesProcessed: 0,
+    averageSessionDuration: 0,
+    conversionRate: 0,
+    pageUsage: [],
+    pageUsageByDay: [],
+    popularPages: []
+  };
+
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData>(defaultAnalyticsData);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [usingDemoData, setUsingDemoData] = useState(false);
 
   const fetchAnalyticsData = async () => {
     setLoading(true);
     
     try {
-      const response = await fetch('/api/admin/analytics');
-      if (!response.ok) {
-        throw new Error('Failed to fetch analytics data');
-      }
+      // Add timeout to prevent long waits
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
-      const data = await response.json();
-      setAnalyticsData(data);
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error('Error fetching analytics data:', error);
-      // Fallback to empty data on error
-      setAnalyticsData({
-        totalUsers: 0,
-        guestUsers: 0,
-        registeredUsers: 0,
-        totalSessions: 0,
-        mostUsedFeatures: [],
-        trafficSources: [],
-        dailyActiveUsers: 0,
-        weeklyActiveUsers: 0,
-        monthlyActiveUsers: 0,
-        totalImagesProcessed: 0,
-        averageSessionDuration: 0,
-        conversionRate: 0
+      const response = await fetch('/api/admin/analytics', {
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Ensure all required arrays are present
+        const safeData: AnalyticsData = {
+          ...defaultAnalyticsData,
+          ...data,
+          mostUsedFeatures: data.mostUsedFeatures || [],
+          trafficSources: data.trafficSources || [],
+          pageUsage: data.pageUsage || [],
+          pageUsageByDay: data.pageUsageByDay || [],
+          popularPages: data.popularPages || []
+        };
+        setAnalyticsData(safeData);
+        setUsingDemoData(false);
+        console.log('Analytics data loaded successfully');
+      } else {
+        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.log('Using demo data - API unavailable:', error.message);
+      setUsingDemoData(true);
+      // Keep the default data (which is already set), just update the timestamp
+      // The UI will show demo data instead of crashing
     } finally {
+      setLastUpdated(new Date());
       setLoading(false);
     }
   };
@@ -112,6 +143,17 @@ function AdminPageContent() {
       window.removeEventListener('imageProcessed', handleImageProcessed);
     };
   }, []);
+
+  // Ensure analyticsData is always properly structured with absolute safety
+  const safeAnalyticsData = analyticsData ? {
+    ...defaultAnalyticsData,
+    ...analyticsData,
+    mostUsedFeatures: Array.isArray(analyticsData.mostUsedFeatures) ? analyticsData.mostUsedFeatures : [],
+    trafficSources: Array.isArray(analyticsData.trafficSources) ? analyticsData.trafficSources : [],
+    pageUsage: Array.isArray(analyticsData.pageUsage) ? analyticsData.pageUsage : [],
+    pageUsageByDay: Array.isArray(analyticsData.pageUsageByDay) ? analyticsData.pageUsageByDay : [],
+    popularPages: Array.isArray(analyticsData.popularPages) ? analyticsData.popularPages : []
+  } : defaultAnalyticsData;
 
   if (isLoading || loading) {
     return (
@@ -151,13 +193,19 @@ function AdminPageContent() {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Analytics & Data Tracking</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Admin Analytics Dashboard</h1>
             <p className="text-muted-foreground mt-2">
-              Track: number of guest users vs signed-in users, most used features, traffic sources.
+              Comprehensive analytics powered by GA4 integration with real-time monitoring
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              This tells you which features are essential for your audience before monetization.
+              Track user behavior, conversion funnels, performance metrics, and export data for analysis.
             </p>
+            {usingDemoData && (
+              <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                <div className="w-2 h-2 bg-yellow-400 rounded-full mr-2"></div>
+                Demo Data - Database Connection Unavailable
+              </div>
+            )}
             {lastUpdated && (
               <p className="text-xs text-muted-foreground mt-1">
                 Last updated: {lastUpdated.toLocaleTimeString()}
@@ -176,8 +224,17 @@ function AdminPageContent() {
         </div>
       </div>
 
-      {analyticsData && (
-        <div className="space-y-8">
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="analytics">Advanced Analytics</TabsTrigger>
+          <TabsTrigger value="export">Data Export</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
+        </TabsList>
+
+        {/* Overview Tab - Original Analytics */}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="space-y-8">
           {/* Key Metrics Overview */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => window.location.href = '/admin/users'}>
@@ -186,9 +243,9 @@ function AdminPageContent() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{analyticsData.totalUsers.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{safeAnalyticsData.totalUsers.toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">
-                  {analyticsData.registeredUsers} registered, {analyticsData.guestUsers} guests
+                  {safeAnalyticsData.registeredUsers} registered, {safeAnalyticsData.guestUsers} guests
                 </p>
                 <p className="text-xs text-primary mt-1">Click to view details →</p>
               </CardContent>
@@ -200,9 +257,9 @@ function AdminPageContent() {
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{analyticsData.totalSessions.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{safeAnalyticsData.totalSessions.toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">
-                  {analyticsData.dailyActiveUsers} daily active users
+                  {safeAnalyticsData.dailyActiveUsers} daily active users
                 </p>
               </CardContent>
             </Card>
@@ -213,9 +270,9 @@ function AdminPageContent() {
                 <Download className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{analyticsData.totalImagesProcessed.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{safeAnalyticsData.totalImagesProcessed.toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">
-                  {analyticsData.averageSessionDuration}min avg session
+                  {safeAnalyticsData.averageSessionDuration}min avg session
                 </p>
               </CardContent>
             </Card>
@@ -226,7 +283,7 @@ function AdminPageContent() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{analyticsData.conversionRate}%</div>
+                <div className="text-2xl font-bold">{safeAnalyticsData.conversionRate}%</div>
                 <p className="text-xs text-muted-foreground">
                   Guest to registered users
                 </p>
@@ -249,16 +306,16 @@ function AdminPageContent() {
                       <span className="text-sm font-medium">Guest Users</span>
                     </div>
                     <div className="text-right">
-                      <div className="text-lg font-bold">{analyticsData.guestUsers}</div>
+                      <div className="text-lg font-bold">{safeAnalyticsData.guestUsers}</div>
                       <div className="text-xs text-muted-foreground">
-                        {((analyticsData.guestUsers / analyticsData.totalUsers) * 100).toFixed(1)}%
+                        {safeAnalyticsData.totalUsers > 0 ? ((safeAnalyticsData.guestUsers / safeAnalyticsData.totalUsers) * 100).toFixed(1) : 0}%
                       </div>
                     </div>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
                       className="bg-blue-500 h-2 rounded-full" 
-                      style={{ width: `${(analyticsData.guestUsers / analyticsData.totalUsers) * 100}%` }}
+                      style={{ width: `${safeAnalyticsData.totalUsers > 0 ? (safeAnalyticsData.guestUsers / safeAnalyticsData.totalUsers) * 100 : 0}%` }}
                     ></div>
                   </div>
                   
@@ -268,16 +325,16 @@ function AdminPageContent() {
                       <span className="text-sm font-medium">Registered Users</span>
                     </div>
                     <div className="text-right">
-                      <div className="text-lg font-bold">{analyticsData.registeredUsers}</div>
+                      <div className="text-lg font-bold">{safeAnalyticsData.registeredUsers}</div>
                       <div className="text-xs text-muted-foreground">
-                        {((analyticsData.registeredUsers / analyticsData.totalUsers) * 100).toFixed(1)}%
+                        {safeAnalyticsData.totalUsers > 0 ? ((safeAnalyticsData.registeredUsers / safeAnalyticsData.totalUsers) * 100).toFixed(1) : 0}%
                       </div>
                     </div>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
                       className="bg-green-500 h-2 rounded-full" 
-                      style={{ width: `${(analyticsData.registeredUsers / analyticsData.totalUsers) * 100}%` }}
+                      style={{ width: `${safeAnalyticsData.totalUsers > 0 ? (safeAnalyticsData.registeredUsers / safeAnalyticsData.totalUsers) * 100 : 0}%` }}
                     ></div>
                   </div>
                 </div>
@@ -296,7 +353,7 @@ function AdminPageContent() {
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-medium">Daily Active Users</span>
                     </div>
-                    <Badge variant="secondary">{analyticsData.dailyActiveUsers}</Badge>
+                    <Badge variant="secondary">{safeAnalyticsData.dailyActiveUsers}</Badge>
                   </div>
                   
                   <div className="flex items-center justify-between">
@@ -304,7 +361,7 @@ function AdminPageContent() {
                       <TrendingUp className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-medium">Weekly Active Users</span>
                     </div>
-                    <Badge variant="secondary">{analyticsData.weeklyActiveUsers}</Badge>
+                    <Badge variant="secondary">{safeAnalyticsData.weeklyActiveUsers}</Badge>
                   </div>
                   
                   <div className="flex items-center justify-between">
@@ -312,7 +369,7 @@ function AdminPageContent() {
                       <BarChart3 className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-medium">Monthly Active Users</span>
                     </div>
-                    <Badge variant="secondary">{analyticsData.monthlyActiveUsers}</Badge>
+                    <Badge variant="secondary">{safeAnalyticsData.monthlyActiveUsers}</Badge>
                   </div>
                 </div>
               </CardContent>
@@ -327,7 +384,8 @@ function AdminPageContent() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {analyticsData.mostUsedFeatures.map((feature, index) => (
+                {safeAnalyticsData.mostUsedFeatures.length > 0 ? (
+                  safeAnalyticsData.mostUsedFeatures.map((feature, index) => (
                   <div key={feature.name} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">{feature.name}</span>
@@ -343,7 +401,12 @@ function AdminPageContent() {
                       ></div>
                     </div>
                   </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No feature usage data available yet.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -356,7 +419,8 @@ function AdminPageContent() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {analyticsData.trafficSources.map((source, index) => (
+                {safeAnalyticsData.trafficSources.length > 0 ? (
+                  safeAnalyticsData.trafficSources.map((source, index) => (
                   <div key={source.source} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
@@ -375,7 +439,12 @@ function AdminPageContent() {
                       ></div>
                     </div>
                   </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No traffic source data available yet.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -388,7 +457,8 @@ function AdminPageContent() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {analyticsData.pageUsage.map((page, index) => (
+                {safeAnalyticsData.pageUsage.length > 0 ? (
+                  safeAnalyticsData.pageUsage.map((page, index) => (
                   <div key={page.page} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
@@ -409,7 +479,12 @@ function AdminPageContent() {
                       ></div>
                     </div>
                   </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No page usage data available yet.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -422,7 +497,8 @@ function AdminPageContent() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {analyticsData.popularPages.map((page, index) => (
+                {safeAnalyticsData.popularPages.length > 0 ? (
+                  safeAnalyticsData.popularPages.map((page, index) => (
                   <div key={page.page} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
@@ -440,16 +516,228 @@ function AdminPageContent() {
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div 
                         className="bg-purple-500 h-2 rounded-full transition-all duration-300" 
-                        style={{ width: `${Math.min((page.uniqueUsers / Math.max(...analyticsData.popularPages.map(p => p.uniqueUsers))) * 100, 100)}%` }}
+                        style={{ width: `${safeAnalyticsData.popularPages.length > 0 ? Math.min((page.uniqueUsers / Math.max(...safeAnalyticsData.popularPages.map(p => p.uniqueUsers), 1)) * 100, 100) : 0}%` }}
                       ></div>
                     </div>
                   </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No popular pages data available yet.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
-        </div>
-      )}
+          </div>
+        </TabsContent>
+
+        {/* Advanced Analytics Tab */}
+        <TabsContent value="analytics">
+          <AnalyticsDashboard />
+        </TabsContent>
+
+        {/* Data Export Tab */}
+        <TabsContent value="export">
+          <DataExport />
+        </TabsContent>
+
+        {/* Reports Tab */}
+        <TabsContent value="reports">
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Analytics Reports</h2>
+              <p className="text-muted-foreground">
+                Generate and view comprehensive analytics reports
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-blue-600" />
+                    Real-time Report
+                  </CardTitle>
+                  <CardDescription>
+                    Live user activity and performance metrics
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    View current user activity, processing status, and system performance in real-time.
+                  </p>
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => setActiveTab('analytics')}
+                  >
+                    View Report
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5 text-green-600" />
+                    Conversion Funnel
+                  </CardTitle>
+                  <CardDescription>
+                    User journey and conversion analysis
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Analyze user behavior through the conversion funnel and identify optimization opportunities.
+                  </p>
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => setActiveTab('analytics')}
+                  >
+                    View Report
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-purple-600" />
+                    Performance Report
+                  </CardTitle>
+                  <CardDescription>
+                    System performance and error analysis
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Monitor system performance, error rates, and processing efficiency over time.
+                  </p>
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => setActiveTab('analytics')}
+                  >
+                    View Report
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-orange-600" />
+                    User Behavior
+                  </CardTitle>
+                  <CardDescription>
+                    User segmentation and behavior patterns
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Understand user segments, engagement levels, and behavior patterns.
+                  </p>
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => setActiveTab('analytics')}
+                  >
+                    View Report
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="h-5 w-5 text-red-600" />
+                    Feature Usage
+                  </CardTitle>
+                  <CardDescription>
+                    Feature adoption and usage statistics
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Track feature adoption rates, usage patterns, and popular functionality.
+                  </p>
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => setActiveTab('overview')}
+                  >
+                    View Report
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-indigo-600" />
+                    Growth Analysis
+                  </CardTitle>
+                  <CardDescription>
+                    User growth and retention metrics
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Analyze user growth, retention rates, and long-term engagement trends.
+                  </p>
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={() => setActiveTab('overview')}
+                  >
+                    View Report
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quick Stats */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Statistics</CardTitle>
+                <CardDescription>
+                  Key metrics at a glance
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {safeAnalyticsData.totalUsers.toLocaleString()}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Total Users</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {safeAnalyticsData.conversionRate}%
+                    </div>
+                    <div className="text-sm text-muted-foreground">Conversion Rate</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {safeAnalyticsData.totalImagesProcessed.toLocaleString()}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Images Processed</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600">
+                      {safeAnalyticsData.dailyActiveUsers}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Daily Active Users</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -457,7 +745,9 @@ function AdminPageContent() {
 export default function AdminPage() {
   return (
     <AdminRoute>
-      <AdminPageContent />
+      <AdminErrorBoundary>
+        <AdminPageContent />
+      </AdminErrorBoundary>
     </AdminRoute>
   );
 }
