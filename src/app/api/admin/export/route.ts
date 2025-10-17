@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { query as dbQuery } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Execute query
-    const result = await db.query(query, params);
+    const result = await dbQuery(query, params);
     const data = result.rows;
 
     // Generate file based on format
